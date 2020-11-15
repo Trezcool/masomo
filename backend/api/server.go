@@ -6,6 +6,7 @@ import (
 	"github.com/trezcool/masomo/backend/api/handlers"
 )
 
+// TODO: load test
 type server struct {
 	addr   string
 	router *echo.Echo

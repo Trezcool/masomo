@@ -15,9 +15,9 @@ var (
 	Validate   *validator.Validate
 	Translator ut.Translator
 
-	// custom validation tags
-	alphaNumUnderTag = "alphanum_"
-
+	// custom validation tags & texts
+	alphaNumUnderTag   = "alphanum_"
+	alphaNumUnderText  = "only alphanumeric characters and underscores are allowed"
 	alphaNumUnderRegex = regexp.MustCompile("^[a-zA-Z0-9_]+$")
 )
 
@@ -42,39 +42,28 @@ func init() {
 
 	// register custom validators
 	_ = Validate.RegisterValidation(alphaNumUnderTag, alphaNumUnderValidation)
+	RegisterCustomTranslation(alphaNumUnderTag, alphaNumUnderText)
+}
 
-	RegisterCustomValidationsTranslations(
-		translateCustomValidationErrs,
-		alphaNumUnderTag,
+// RegisterCustomTranslation registers a custom translation for the specified validation tag.
+func RegisterCustomTranslation(tag, text string, override ...bool) {
+	var ovrd bool
+	if len(override) != 0 {
+		ovrd = override[0]
+	}
+	_ = Validate.RegisterTranslation(
+		tag, Translator,
+		func(t ut.Translator) error { return t.Add(tag, text, ovrd) },
+		func(t ut.Translator, fe validator.FieldError) string {
+			s, _ := t.T(tag, fe.Field())
+			return s
+		},
 	)
-}
-
-// registerCustomValidationsTranslations registers error messages for custom struct validations.
-// a validator.RegisterTranslationsFunc is required for registering the Translator,
-// but it has already been registered as the default translation.
-// so a noop func is passed to bypass this requirement.
-func RegisterCustomValidationsTranslations(transFn validator.TranslationFunc, tags ...string) {
-	registerFn := func(ut.Translator) error { return nil }
-	for _, tag := range tags {
-		_ = Validate.RegisterTranslation(tag, Translator, registerFn, transFn)
-	}
-}
-
-func translateCustomValidationErrs(_ ut.Translator, fe validator.FieldError) string {
-	switch fe.Tag() {
-	case alphaNumUnderTag:
-		return "only alphanumeric characters and underscores are allowed"
-	default:
-		return ""
-	}
 }
 
 // Custom Global Validators
 
 // alphaNumUnderValidation only allows alphanumeric characters and underscores.
 func alphaNumUnderValidation(fl validator.FieldLevel) bool {
-	if str, ok := fl.Field().Interface().(string); ok {
-		return alphaNumUnderRegex.MatchString(str)
-	}
-	return false
+	return alphaNumUnderRegex.MatchString(fl.Field().String())
 }

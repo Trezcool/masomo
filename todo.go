@@ -6,6 +6,7 @@ package masomo
 
 /*
 TODO: cmd to add School !!!
+TODO: admin: upload CSV to bulk create users via API ???
 
 TODO: "github.com/pkg/errors" !!!
 

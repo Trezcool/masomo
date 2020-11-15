@@ -3,38 +3,26 @@ package user
 import (
 	"sort"
 
-	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 
 	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
 var (
-	allRolesTag        = "all_roles"
-	usernameOrEmailTag = "username_or_email"
+	allRolesTag  = "all_roles"
+	allRolesText = "invalid roles"
+
+	usernameOrEmailTag  = "username_or_email"
+	usernameOrEmailText = "one of username or email is required"
 )
 
 // register custom validators
 func init() {
 	_ = utils.Validate.RegisterValidation(allRolesTag, allRolesValidation)
+	utils.RegisterCustomTranslation(allRolesTag, allRolesText)
+
 	utils.Validate.RegisterStructValidation(newUserStructValidation, NewUser{})
-
-	utils.RegisterCustomValidationsTranslations(
-		translateCustomValidationErrs,
-		allRolesTag,
-		usernameOrEmailTag,
-	)
-}
-
-func translateCustomValidationErrs(_ ut.Translator, fe validator.FieldError) string {
-	switch fe.Tag() {
-	case allRolesTag:
-		return "invalid roles"
-	case usernameOrEmailTag:
-		return "one of username or email is required"
-	default:
-		return ""
-	}
+	utils.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
 }
 
 // Custom Validators
