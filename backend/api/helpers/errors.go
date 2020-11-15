@@ -7,7 +7,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/apps/shared"
+	"github.com/trezcool/masomo/backend/apps"
+	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
 var (
@@ -63,7 +64,7 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 	case validator.ValidationErrors:
 		fldErrs := make(map[string]string)
 		for _, vErr := range err {
-			fldErrs[vErr.Field()] = vErr.Translate(shared.Translator)
+			fldErrs[vErr.Field()] = vErr.Translate(utils.Translator)
 		}
 		code = http.StatusBadRequest
 		message = fldErrs
@@ -78,6 +79,9 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 			message = err.Error()
 		}
 		code = http.StatusBadRequest
+	case *apps.ArgumentError:
+		code = http.StatusBadRequest
+		message = err.Error()
 	default: // any other error is a server error
 		code = http.StatusInternalServerError
 		message = http.StatusText(http.StatusInternalServerError)

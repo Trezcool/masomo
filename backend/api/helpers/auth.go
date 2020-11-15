@@ -37,9 +37,9 @@ type Claims struct {
 	Roles     []string `json:"roles"`
 }
 
-func Authenticate(data user.LoginRequest, repo *user.Repository) (*Claims, error) {
-	if usr, err := repo.GetByUsernameOrEmail(data.Username); err == nil {
-		if err := usr.CheckPassword([]byte(data.Password)); err == nil {
+func Authenticate(uname, pwd string, repo *user.Repository) (*Claims, error) {
+	if usr, err := repo.GetByUsernameOrEmail(uname); err == nil {
+		if err := usr.CheckPassword([]byte(pwd)); err == nil {
 			if !usr.IsActive {
 				return nil, accountDeactivatedErr
 			}

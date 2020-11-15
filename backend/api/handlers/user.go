@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/trezcool/masomo/backend/api/helpers"
-	"github.com/trezcool/masomo/backend/apps"
 	"github.com/trezcool/masomo/backend/apps/user"
+	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
 var (
@@ -35,7 +35,7 @@ func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, repo *user.Reposito
 	ag := ug.Group("", jwt)
 	ag.POST("/register", a.userCreate, helpers.AdminMiddleware())
 	ag.GET("", a.userQuery, helpers.AdminMiddleware())
-	ag.DELETE("", a.userDestroyMultiple, helpers.AdminMiddleware()) // delete selected (ids via Query);
+	ag.DELETE("", a.userDestroyMultiple, helpers.AdminMiddleware())
 	ag.GET("/roles", a.userQueryRoles, helpers.AdminMiddleware())
 
 	// detail endpoints
@@ -52,7 +52,7 @@ func (a *userApi) userCreate(c echo.Context) error {
 	if err := c.Bind(data); err != nil {
 		return err
 	}
-	if err := c.Validate(*data); err != nil {
+	if err := data.Validate(a.repo); err != nil {
 		return err
 	}
 
@@ -67,9 +67,6 @@ func (a *userApi) userCreate(c echo.Context) error {
 
 	usr, err := a.repo.Create(*data)
 	if err != nil {
-		if aErr, ok := err.(*apps.ArgumentError); ok {
-			return helpers.NewBadRequestError(aErr)
-		}
 		return err
 	}
 
@@ -77,15 +74,15 @@ func (a *userApi) userCreate(c echo.Context) error {
 }
 
 func (a *userApi) userLogin(c echo.Context) error {
-	data := new(user.LoginRequest)
+	data := new(LoginRequest)
 	if err := c.Bind(data); err != nil {
 		return err
 	}
-	if err := c.Validate(*data); err != nil {
+	if err := data.Validate(); err != nil {
 		return err
 	}
 
-	claims, err := helpers.Authenticate(*data, a.repo)
+	claims, err := helpers.Authenticate(data.Username, data.Password, a.repo)
 	if err != nil {
 		return err
 	}
@@ -94,7 +91,7 @@ func (a *userApi) userLogin(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, &user.LoginResponse{Token: token})
+	return c.JSON(http.StatusOK, &LoginResponse{Token: token})
 }
 
 func (a *userApi) userResetPassword(c echo.Context) error {
@@ -147,6 +144,7 @@ func (a *userApi) userDestroy(c echo.Context) error {
 }
 
 func (a *userApi) userDestroyMultiple(c echo.Context) error {
+	// TODO: delete selected (ids via Query);
 	return c.String(http.StatusOK, "user.userDestroyMultiple")
 } // TODO
 
@@ -176,4 +174,18 @@ func ctxUserOrAdminMiddleware(repo *user.Repository) echo.MiddlewareFunc {
 			return helpers.NotFoundHttpErr
 		}
 	}
+}
+
+type LoginRequest struct {
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
+func (lr *LoginRequest) Validate() error {
+	lr.Username = utils.CleanString(lr.Username, true)
+	return utils.Validate.Struct(lr)
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
 }

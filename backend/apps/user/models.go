@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
 // Roles
@@ -109,22 +111,23 @@ func (u *User) IsStudent() bool {
 
 // NewUser contains information needed to create a new User.
 type NewUser struct {
-	Name            string   `json:"name" validate:"required,notblank"`
-	Username        string   `json:"username"`                         // TODO: `alphaNum` + `_`
-	Email           string   `json:"email" validate:"omitempty,email"` // FIXME: omitblank on opt strings
-	Password        string   `json:"password" validate:"required"`     // TODO: strong pwd !!!
+	Name            string   `json:"name" validate:"required"`
+	Username        string   `json:"username" validate:"omitempty,min=6,alphanum_"`
+	Email           string   `json:"email" validate:"omitempty,email"`
+	Password        string   `json:"password" validate:"required"` // TODO: strong pwd !!!
 	PasswordConfirm string   `json:"password_confirm" validate:"required,eqfield=Password"`
 	Roles           []string `json:"roles" validate:"omitempty,all_roles"`
 }
 
-// Login
-type LoginRequest struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
-}
+func (nu *NewUser) Validate(repo *Repository) error {
+	nu.Name = utils.CleanString(nu.Name)
+	nu.Username = utils.CleanString(nu.Username, true)
+	nu.Email = utils.CleanString(nu.Email, true)
 
-type LoginResponse struct {
-	Token string `json:"token"`
+	if err := utils.Validate.Struct(nu); err != nil {
+		return err
+	}
+	return repo.checkUniqueness(nu.Username, nu.Email)
 }
 
 // UpdateUser defines what information may be provided to modify an existing User.

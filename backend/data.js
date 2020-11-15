@@ -1,7 +1,7 @@
 d = [
 {
   "name": "User1",
-  "username": "user1",
+  "username": "user01",
   "email": "user1@masomo.cd",
   "password": "lol",
   "password_confirm": "lol"

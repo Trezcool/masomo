@@ -34,25 +34,8 @@ type Repository struct {
 }
 
 func NewRepository() *Repository {
-	db := make(_DB)
-
-	pkCount++
-	now := time.Now()
-	root := &User{
-		ID:        pkCount,
-		Name:      "Root",
-		Username:  "root",
-		Email:     "root@masomo.cd",
-		IsActive:  true,
-		Roles:     AllRoles,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_ = root.SetPassword("LolC@t123")
-	db[pkCount] = root
-
 	return &Repository{
-		db: db,
+		db: make(_DB),
 	}
 }
 
@@ -60,19 +43,13 @@ func (r *Repository) Create(nu NewUser) (User, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	uname := utils.CleanString(nu.Username, true)
-	email := utils.CleanString(nu.Email, true)
-	if err := r.checkUniqueness(uname, email); err != nil { // TODO: avoid user enumeration
-		return User{}, err
-	}
-
 	pkCount++
 	now := time.Now()
 	usr := User{
 		ID:        pkCount,
-		Name:      utils.CleanString(nu.Name),
-		Username:  uname,
-		Email:     email,
+		Name:      nu.Name,
+		Username:  nu.Username,
+		Email:     nu.Email,
 		IsActive:  true,
 		Roles:     nu.Roles,
 		CreatedAt: now,
@@ -87,6 +64,9 @@ func (r *Repository) Create(nu NewUser) (User, error) {
 }
 
 func (r *Repository) checkUniqueness(uname, email string) error {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
 	for _, usr := range r.db.query() {
 		if uname != "" && usr.Username == uname {
 			return apps.NewArgumentError("a user with this username already exists")
