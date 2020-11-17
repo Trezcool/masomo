@@ -7,7 +7,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/apps"
 	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
@@ -19,34 +18,6 @@ var (
 	NotFoundHttpErr         = echo.NewHTTPError(http.StatusNotFound, "not found")
 	tokenSigningError       = errors.New("failed to sign token")
 )
-
-// FieldError is used to indicate an error with a specific request field.
-type FieldError struct {
-	field string
-	error string
-}
-
-func NewFieldError(field, err string) FieldError {
-	return FieldError{field, err}
-}
-
-type badRequestError struct {
-	err    error
-	code   int
-	fields []FieldError
-}
-
-// NewBadRequestError wraps a provided error with an http.StatusBadRequest code.
-func NewBadRequestError(err error, flds ...FieldError) error {
-	return &badRequestError{err, http.StatusBadRequest, flds}
-}
-
-func (err *badRequestError) Error() string {
-	if err.err == nil {
-		return ""
-	}
-	return err.err.Error()
-}
 
 func AppHTTPErrorHandler(err error, c echo.Context) {
 	var code int
@@ -68,20 +39,17 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 		}
 		code = http.StatusBadRequest
 		message = fldErrs
-	case *badRequestError:
-		if err.fields != nil {
+	case *utils.ValidationError:
+		if err.Fields != nil {
 			fldErrs := make(map[string]string)
-			for _, fErr := range err.fields {
-				fldErrs[fErr.field] = fErr.error
+			for _, fErr := range err.Fields {
+				fldErrs[fErr.Field] = fErr.Error
 			}
 			message = fldErrs
 		} else {
 			message = err.Error()
 		}
 		code = http.StatusBadRequest
-	case *apps.ArgumentError:
-		code = http.StatusBadRequest
-		message = err.Error()
 	default: // any other error is a server error
 		code = http.StatusInternalServerError
 		message = http.StatusText(http.StatusInternalServerError)
@@ -100,7 +68,7 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 		} else {
 			err = c.JSON(code, message)
 		}
-		if code >= http.StatusInternalServerError {
+		if err != nil {
 			c.Echo().Logger.Error(err)
 		}
 	}

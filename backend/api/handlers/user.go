@@ -62,7 +62,7 @@ func (a *userApi) userCreate(c echo.Context) error {
 		return err
 	}
 	if user.MaxRolePriority(data.Roles) > user.MaxRolePriority(ctxUsr.Roles) {
-		return helpers.NewBadRequestError(nil, helpers.NewFieldError("roles", noPermsToSetRolesErr))
+		return utils.NewValidationError(nil, utils.FieldError{Field: "roles", Error: noPermsToSetRolesErr})
 	}
 
 	usr, err := a.repo.Create(*data)

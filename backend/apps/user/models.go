@@ -114,9 +114,9 @@ type NewUser struct {
 	Name            string   `json:"name" validate:"required"`
 	Username        string   `json:"username" validate:"omitempty,min=6,alphanum_"`
 	Email           string   `json:"email" validate:"omitempty,email"`
-	Password        string   `json:"password" validate:"required"` // TODO: strong pwd !!!
+	Password        string   `json:"password" validate:"required"`
 	PasswordConfirm string   `json:"password_confirm" validate:"required,eqfield=Password"`
-	Roles           []string `json:"roles" validate:"omitempty,all_roles"`
+	Roles           []string `json:"roles" validate:"omitempty,allroles"`
 }
 
 func (nu *NewUser) Validate(repo *Repository) error {

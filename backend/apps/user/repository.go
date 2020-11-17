@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/trezcool/masomo/backend/apps"
 	"github.com/trezcool/masomo/backend/apps/utils"
 )
 
@@ -69,10 +68,16 @@ func (r *Repository) checkUniqueness(uname, email string) error {
 
 	for _, usr := range r.db.query() {
 		if uname != "" && usr.Username == uname {
-			return apps.NewArgumentError("a user with this username already exists")
+			return utils.NewValidationError(nil, utils.FieldError{
+				Field: "username",
+				Error: "a user with this username already exists",
+			})
 		}
 		if email != "" && usr.Email == email {
-			return apps.NewArgumentError("a user with this email already exists")
+			return utils.NewValidationError(nil, utils.FieldError{
+				Field: "email",
+				Error: "a user with this email already exists",
+			})
 		}
 	}
 	return nil
