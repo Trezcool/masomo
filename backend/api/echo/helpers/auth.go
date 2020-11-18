@@ -37,9 +37,9 @@ type Claims struct {
 	Roles     []string `json:"roles"`
 }
 
-func Authenticate(uname, pwd string, repo *user.Repository) (*Claims, error) {
-	if usr, err := repo.GetByUsernameOrEmail(uname); err == nil {
-		if err := usr.CheckPassword([]byte(pwd)); err == nil {
+func Authenticate(uname, pwd string, service *user.Service) (*Claims, error) {
+	if usr, err := service.GetByUsernameOrEmail(uname); err == nil {
+		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
 				return nil, accountDeactivatedErr
 			}
@@ -84,7 +84,7 @@ func getContextClaims(c echo.Context) (*Claims, error) {
 	return nil, unauthorizedErr
 }
 
-func GetContextUser(c echo.Context, uRepo *user.Repository) (user.User, error) {
+func GetContextUser(c echo.Context, service *user.Service) (user.User, error) {
 	if usr, ok := c.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
@@ -99,7 +99,7 @@ func GetContextUser(c echo.Context, uRepo *user.Repository) (user.User, error) {
 		return user.User{}, err
 	}
 
-	usr, err := uRepo.GetByID(uid)
+	usr, err := service.GetByID(uid)
 	c.Set(contextUserKey, usr)
 	return usr, err
 }

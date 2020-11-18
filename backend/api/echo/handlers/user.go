@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/api/helpers"
+	"github.com/trezcool/masomo/backend/api/echo/helpers"
 	"github.com/trezcool/masomo/backend/apps/user"
 	"github.com/trezcool/masomo/backend/apps/utils"
 )
@@ -18,11 +18,11 @@ var (
 )
 
 type userApi struct {
-	repo *user.Repository
+	service *user.Service
 }
 
-func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, repo *user.Repository) {
-	a := userApi{repo: repo}
+func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, service *user.Service) {
+	a := userApi{service: service}
 
 	ug := g.Group("/users")
 
@@ -39,7 +39,7 @@ func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, repo *user.Reposito
 	ag.GET("/roles", a.userQueryRoles, helpers.AdminMiddleware())
 
 	// detail endpoints
-	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(a.repo))
+	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(a.service))
 	dg.GET("", a.userRetrieve)
 	dg.PUT("", a.userUpdate)
 	dg.DELETE("", a.userDestroy, helpers.AdminMiddleware())
@@ -47,17 +47,17 @@ func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, repo *user.Reposito
 
 // Handlers
 
-func (a *userApi) userCreate(c echo.Context) error {
+func (api *userApi) userCreate(c echo.Context) error {
 	data := new(user.NewUser)
 	if err := c.Bind(data); err != nil {
 		return err
 	}
-	if err := data.Validate(a.repo); err != nil {
+	if err := data.Validate(api.service); err != nil {
 		return err
 	}
 
 	// ctxUser cannot set a role > their own max role
-	ctxUsr, err := helpers.GetContextUser(c, a.repo)
+	ctxUsr, err := helpers.GetContextUser(c, api.service)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (a *userApi) userCreate(c echo.Context) error {
 		return utils.NewValidationError(nil, utils.FieldError{Field: "roles", Error: noPermsToSetRolesErr})
 	}
 
-	usr, err := a.repo.Create(*data)
+	usr, err := api.service.Create(*data)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (a *userApi) userCreate(c echo.Context) error {
 	return c.JSON(http.StatusCreated, usr)
 }
 
-func (a *userApi) userLogin(c echo.Context) error {
+func (api *userApi) userLogin(c echo.Context) error {
 	data := new(LoginRequest)
 	if err := c.Bind(data); err != nil {
 		return err
@@ -82,7 +82,7 @@ func (a *userApi) userLogin(c echo.Context) error {
 		return err
 	}
 
-	claims, err := helpers.Authenticate(data.Username, data.Password, a.repo)
+	claims, err := helpers.Authenticate(data.Username, data.Password, api.service)
 	if err != nil {
 		return err
 	}
@@ -91,26 +91,26 @@ func (a *userApi) userLogin(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, &LoginResponse{Token: token})
+	return c.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
-func (a *userApi) userResetPassword(c echo.Context) error {
+func (api *userApi) userResetPassword(c echo.Context) error {
 	return c.String(http.StatusOK, "user.userResetPassword")
 } // TODO
 
-func (a *userApi) userConfirmPasswordReset(c echo.Context) error {
+func (api *userApi) userConfirmPasswordReset(c echo.Context) error {
 	return c.String(http.StatusOK, "user.userConfirmPasswordReset")
 } // TODO
 
-func (a *userApi) userQuery(c echo.Context) error {
-	res, err := a.repo.Query()
+func (api *userApi) userQuery(c echo.Context) error {
+	res, err := api.service.QueryAll()
 	if err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, res)
 }
 
-func (a *userApi) userRetrieve(c echo.Context) error {
+func (api *userApi) userRetrieve(c echo.Context) error {
 	usr, ok := c.Get("object").(user.User)
 	if !ok {
 		return usrNotFoundInCtxErr
@@ -118,18 +118,18 @@ func (a *userApi) userRetrieve(c echo.Context) error {
 	return c.JSON(http.StatusOK, usr)
 }
 
-func (a *userApi) userUpdate(c echo.Context) error {
+func (api *userApi) userUpdate(c echo.Context) error {
 	return c.String(http.StatusOK, "user.userUpdate")
 } // TODO
 
-func (a *userApi) userDestroy(c echo.Context) error {
+func (api *userApi) userDestroy(c echo.Context) error {
 	usr, ok := c.Get("object").(user.User)
 	if !ok {
 		return usrNotFoundInCtxErr
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
-	ctxUsr, err := helpers.GetContextUser(c, a.repo)
+	ctxUsr, err := helpers.GetContextUser(c, api.service)
 	if err != nil {
 		return err
 	}
@@ -137,32 +137,32 @@ func (a *userApi) userDestroy(c echo.Context) error {
 		return helpers.ForbiddenHttpErr
 	}
 
-	if err := a.repo.Delete(usr.ID); err != nil {
+	if err := api.service.Delete(usr.ID); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
 
-func (a *userApi) userDestroyMultiple(c echo.Context) error {
+func (api *userApi) userDestroyMultiple(c echo.Context) error {
 	// TODO: delete selected (ids via Query);
 	return c.String(http.StatusOK, "user.userDestroyMultiple")
 } // TODO
 
-func (a *userApi) userQueryRoles(c echo.Context) error {
+func (api *userApi) userQueryRoles(c echo.Context) error {
 	return c.String(http.StatusOK, "user.userQueryRoles")
 } // TODO
 
-func ctxUserOrAdminMiddleware(repo *user.Repository) echo.MiddlewareFunc {
+func ctxUserOrAdminMiddleware(service *user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.Atoi(c.Param("id")); err == nil {
-				ctxUsr, err := helpers.GetContextUser(c, repo)
+				ctxUsr, err := helpers.GetContextUser(c, service)
 				if err != nil {
 					return err
 				}
 
 				if id == ctxUsr.ID || ctxUsr.IsAdmin() {
-					usr, err := repo.GetByID(id)
+					usr, err := service.GetByID(id)
 					if err == nil {
 						c.Set("object", usr)
 						return next(c)

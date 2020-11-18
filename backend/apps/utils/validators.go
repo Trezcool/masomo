@@ -48,7 +48,7 @@ func init() {
 // RegisterCustomTranslation registers a custom translation for the specified validation tag.
 func RegisterCustomTranslation(tag, text string, override ...bool) {
 	var ovrd bool
-	if len(override) != 0 {
+	if len(override) > 0 {
 		ovrd = override[0]
 	}
 	_ = Validate.RegisterTranslation(

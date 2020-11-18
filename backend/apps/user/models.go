@@ -84,8 +84,8 @@ func (u *User) SetPassword(pwd string) error {
 	return nil
 }
 
-func (u *User) CheckPassword(pwd []byte) error {
-	return bcrypt.CompareHashAndPassword(u.PasswordHash, pwd)
+func (u *User) CheckPassword(pwd string) error {
+	return bcrypt.CompareHashAndPassword(u.PasswordHash, []byte(pwd))
 }
 
 func (u *User) roleStartsWith(prefix string) bool {
@@ -119,7 +119,7 @@ type NewUser struct {
 	Roles           []string `json:"roles" validate:"omitempty,allroles"`
 }
 
-func (nu *NewUser) Validate(repo *Repository) error {
+func (nu *NewUser) Validate(service *Service) error {
 	nu.Name = utils.CleanString(nu.Name)
 	nu.Username = utils.CleanString(nu.Username, true)
 	nu.Email = utils.CleanString(nu.Email, true)
@@ -127,7 +127,7 @@ func (nu *NewUser) Validate(repo *Repository) error {
 	if err := utils.Validate.Struct(nu); err != nil {
 		return err
 	}
-	return repo.checkUniqueness(nu.Username, nu.Email)
+	return service.checkUniqueness(nu.Username, nu.Email)
 }
 
 // UpdateUser defines what information may be provided to modify an existing User.
