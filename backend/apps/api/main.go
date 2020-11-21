@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/trezcool/masomo/backend/api/echo"
-	"github.com/trezcool/masomo/backend/apps/user"
-	_ "github.com/trezcool/masomo/backend/apps/utils"
+	"github.com/trezcool/masomo/backend/apps/api/echo"
+	"github.com/trezcool/masomo/backend/business/user"
+	_ "github.com/trezcool/masomo/backend/business/utils"
 	in_memdb "github.com/trezcool/masomo/backend/database/in-mem"
 )
 
@@ -18,7 +18,7 @@ func main() {
 	errAndDie(err)
 
 	// set up services
-	usrService := user.NewService(in_memdb.NewUserRepository(db))
+	usrSvc := user.NewService(in_memdb.NewUserRepository(db))
 
 	// TODO: move to script | SQL data migration (dev only?)
 	root := user.NewUser{
@@ -28,10 +28,10 @@ func main() {
 		Password: "LolC@t123",
 		Roles:    user.AllRoles,
 	}
-	_, _ = usrService.Create(root)
+	_, _ = usrSvc.Create(root)
 
 	// start API server
-	app := api_echo.NewServer(":8080", usrService)
+	app := api_echo.NewServer(":8080", usrSvc)
 	app.Start()
 }
 

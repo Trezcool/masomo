@@ -6,22 +6,22 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/trezcool/masomo/backend/api/echo/handlers"
-	"github.com/trezcool/masomo/backend/api/echo/helpers"
-	"github.com/trezcool/masomo/backend/apps/user"
+	"github.com/trezcool/masomo/backend/apps/api/echo/handlers"
+	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
+	"github.com/trezcool/masomo/backend/business/user"
 )
 
 type server struct {
-	addr       string
-	router     *echo.Echo
-	usrService *user.Service
+	addr   string
+	router *echo.Echo
+	usrSvc *user.Service
 }
 
-func NewServer(addr string, usrService *user.Service) *server {
+func NewServer(addr string, usrSvc *user.Service) *server {
 	s := &server{
-		addr:       addr,
-		router:     echo.New(),
-		usrService: usrService,
+		addr:   addr,
+		router: echo.New(),
+		usrSvc: usrSvc,
 	}
 	s.setup()
 	return s
@@ -40,7 +40,7 @@ func (s *server) setup() {
 	v1 := s.router.Group("/v1")
 	jwt := middleware.JWTWithConfig(helpers.AppJWTConfig)
 
-	handlers.RegisterUserAPI(v1, jwt, s.usrService)
+	handlers.RegisterUserAPI(v1, jwt, s.usrSvc)
 
 	// TODO: swagger !!
 }

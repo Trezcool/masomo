@@ -1,1 +1,1 @@
-package gorm_db
+package gorm_repo

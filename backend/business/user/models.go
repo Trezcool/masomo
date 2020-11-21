@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/trezcool/masomo/backend/apps/utils"
+	"github.com/trezcool/masomo/backend/business/utils"
 )
 
 // Roles
@@ -119,7 +119,7 @@ type NewUser struct {
 	Roles           []string `json:"roles" validate:"omitempty,allroles"`
 }
 
-func (nu *NewUser) Validate(service *Service) error {
+func (nu *NewUser) Validate(svc *Service) error {
 	nu.Name = utils.CleanString(nu.Name)
 	nu.Username = utils.CleanString(nu.Username, true)
 	nu.Email = utils.CleanString(nu.Email, true)
@@ -127,18 +127,46 @@ func (nu *NewUser) Validate(service *Service) error {
 	if err := utils.Validate.Struct(nu); err != nil {
 		return err
 	}
-	return service.checkUniqueness(nu.Username, nu.Email)
+	return svc.checkUniqueness(nu.Username, nu.Email)
 }
 
 // UpdateUser defines what information may be provided to modify an existing User.
 type UpdateUser struct {
-	Name            string
-	Username        string
-	Email           string
-	IsActive        bool
-	Roles           []string
-	Password        string
-	PasswordConfirm string
+	Name            string   `json:"name"`
+	Username        string   `json:"username" validate:"omitempty,min=6,alphanum_"`
+	Email           string   `json:"email" validate:"omitempty,email"`
+	IsActive        *bool    `json:"is_active"`
+	Roles           []string `json:"roles" validate:"omitempty,allroles"`
+	Password        string   `json:"password" validate:"omitempty"`
+	PasswordConfirm string   `json:"password_confirm" validate:"required_with=Password,eqfield=Password"`
+}
+
+func (uu *UpdateUser) Validate(origUsr User, svc *Service) error {
+	name := utils.CleanString(uu.Name)
+	if name != "" {
+		uu.Name = name
+	} else {
+		uu.Name = origUsr.Name
+	}
+
+	uname := utils.CleanString(uu.Username, true)
+	if uname != "" {
+		uu.Username = uname
+	} else {
+		uu.Username = origUsr.Username
+	}
+
+	email := utils.CleanString(uu.Email, true)
+	if email != "" {
+		uu.Email = email
+	} else {
+		uu.Email = origUsr.Email
+	}
+
+	if err := utils.Validate.Struct(uu); err != nil {
+		return err
+	}
+	return svc.checkUniqueness(uu.Username, uu.Email, origUsr)
 }
 
 type QueryFilter struct {

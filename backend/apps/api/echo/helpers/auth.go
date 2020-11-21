@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/trezcool/masomo/backend/apps/user"
+	"github.com/trezcool/masomo/backend/business/user"
 )
 
 var (
@@ -37,8 +37,8 @@ type Claims struct {
 	Roles     []string `json:"roles"`
 }
 
-func Authenticate(uname, pwd string, service *user.Service) (*Claims, error) {
-	if usr, err := service.GetByUsernameOrEmail(uname); err == nil {
+func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
+	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
 		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
 				return nil, accountDeactivatedErr
@@ -75,8 +75,8 @@ func GenerateToken(claims *Claims) (string, error) {
 	return ss, nil
 }
 
-func getContextClaims(c echo.Context) (*Claims, error) {
-	if token, ok := c.Get(AppJWTConfig.ContextKey).(*jwt.Token); ok {
+func getContextClaims(ctx echo.Context) (*Claims, error) {
+	if token, ok := ctx.Get(AppJWTConfig.ContextKey).(*jwt.Token); ok {
 		if claims, ok := token.Claims.(*Claims); ok {
 			return claims, nil
 		}
@@ -84,12 +84,12 @@ func getContextClaims(c echo.Context) (*Claims, error) {
 	return nil, unauthorizedErr
 }
 
-func GetContextUser(c echo.Context, service *user.Service) (user.User, error) {
-	if usr, ok := c.Get(contextUserKey).(user.User); ok {
+func GetContextUser(ctx echo.Context, svc *user.Service) (user.User, error) {
+	if usr, ok := ctx.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
 
-	claims, err := getContextClaims(c)
+	claims, err := getContextClaims(ctx)
 	if err != nil {
 		return user.User{}, err
 	}
@@ -99,16 +99,16 @@ func GetContextUser(c echo.Context, service *user.Service) (user.User, error) {
 		return user.User{}, err
 	}
 
-	usr, err := service.GetByID(uid)
-	c.Set(contextUserKey, usr)
+	usr, err := svc.GetByID(uid)
+	ctx.Set(contextUserKey, usr)
 	return usr, err
 }
 
-func contextHasAnyRole(c echo.Context, roles []string) bool {
+func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	if len(roles) == 0 {
 		return true
 	}
-	if claims, err := getContextClaims(c); err == nil {
+	if claims, err := getContextClaims(ctx); err == nil {
 		sort.Strings(claims.Roles)
 		for _, role := range roles {
 			if idx := sort.SearchStrings(claims.Roles, role); idx < len(claims.Roles) {

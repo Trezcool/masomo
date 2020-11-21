@@ -19,6 +19,10 @@ var (
 	alphaNumUnderTag   = "alphanum_"
 	alphaNumUnderText  = "only alphanumeric characters and underscores are allowed"
 	alphaNumUnderRegex = regexp.MustCompile("^[\\w\\s]+$")
+
+	requiredTag     = "required"
+	requiredWithTag = "required_with"
+	requiredText    = "this field is required"
 )
 
 // Instantiate the validator for use.
@@ -43,6 +47,9 @@ func init() {
 	// register custom validators
 	_ = Validate.RegisterValidation(alphaNumUnderTag, alphaNumUnderValidation)
 	RegisterCustomTranslation(alphaNumUnderTag, alphaNumUnderText)
+
+	RegisterCustomTranslation(requiredTag, requiredText, true)
+	RegisterCustomTranslation(requiredWithTag, requiredText, true)
 }
 
 // RegisterCustomTranslation registers a custom translation for the specified validation tag.

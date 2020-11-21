@@ -1,1 +1,1 @@
-package sqlboiler_db
+package sqlboiler_repo

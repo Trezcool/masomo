@@ -3,7 +3,7 @@ package in_memdb
 import (
 	"sync"
 
-	"github.com/trezcool/masomo/backend/apps/user"
+	"github.com/trezcool/masomo/backend/business/user"
 )
 
 type (
@@ -12,14 +12,14 @@ type (
 	}
 
 	userTable struct {
-		t     map[int]*user.User
+		table map[int]*user.User
 		mutex sync.RWMutex
 	}
 )
 
 func Open() (*DB, error) {
 	db := &DB{
-		user: &userTable{t: make(map[int]*user.User)},
+		user: &userTable{table: make(map[int]*user.User)},
 	}
 	return db, nil
 }

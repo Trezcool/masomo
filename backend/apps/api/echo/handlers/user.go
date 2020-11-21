@@ -7,9 +7,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/api/echo/helpers"
-	"github.com/trezcool/masomo/backend/apps/user"
-	"github.com/trezcool/masomo/backend/apps/utils"
+	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
+	"github.com/trezcool/masomo/backend/business/user"
+	"github.com/trezcool/masomo/backend/business/utils"
 )
 
 var (
@@ -21,13 +21,13 @@ type userApi struct {
 	service *user.Service
 }
 
-func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, service *user.Service) {
-	a := userApi{service: service}
+func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) {
+	a := userApi{service: svc}
 
 	ug := g.Group("/users")
 
 	// un-authed endpoints
-	ug.POST("/login", a.userLogin)
+	ug.POST("/login", a.userLogin) // TODO: access attempt
 	ug.POST("/password-reset", a.userResetPassword)
 	ug.POST("/password-reset-confirm", a.userConfirmPasswordReset)
 
@@ -47,9 +47,9 @@ func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, service *user.Servi
 
 // Handlers
 
-func (api *userApi) userCreate(c echo.Context) error {
+func (api *userApi) userCreate(ctx echo.Context) error {
 	data := new(user.NewUser)
-	if err := c.Bind(data); err != nil {
+	if err := ctx.Bind(data); err != nil {
 		return err
 	}
 	if err := data.Validate(api.service); err != nil {
@@ -57,7 +57,7 @@ func (api *userApi) userCreate(c echo.Context) error {
 	}
 
 	// ctxUser cannot set a role > their own max role
-	ctxUsr, err := helpers.GetContextUser(c, api.service)
+	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
 	if err != nil {
 		return err
 	}
@@ -70,12 +70,12 @@ func (api *userApi) userCreate(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusCreated, usr)
+	return ctx.JSON(http.StatusCreated, usr)
 }
 
-func (api *userApi) userLogin(c echo.Context) error {
+func (api *userApi) userLogin(ctx echo.Context) error {
 	data := new(LoginRequest)
-	if err := c.Bind(data); err != nil {
+	if err := ctx.Bind(data); err != nil {
 		return err
 	}
 	if err := data.Validate(); err != nil {
@@ -91,45 +91,86 @@ func (api *userApi) userLogin(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, LoginResponse{Token: token})
+	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
-func (api *userApi) userResetPassword(c echo.Context) error {
-	return c.String(http.StatusOK, "user.userResetPassword")
+func (api *userApi) userResetPassword(ctx echo.Context) error {
+	return ctx.String(http.StatusOK, "user.userResetPassword")
 } // TODO
 
-func (api *userApi) userConfirmPasswordReset(c echo.Context) error {
-	return c.String(http.StatusOK, "user.userConfirmPasswordReset")
+func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
+	return ctx.String(http.StatusOK, "user.userConfirmPasswordReset")
 } // TODO
 
-func (api *userApi) userQuery(c echo.Context) error {
+func (api *userApi) userQuery(ctx echo.Context) error {
 	res, err := api.service.QueryAll()
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, res)
+	return ctx.JSON(http.StatusOK, res)
 }
 
-func (api *userApi) userRetrieve(c echo.Context) error {
-	usr, ok := c.Get("object").(user.User)
+func (api *userApi) userRetrieve(ctx echo.Context) error {
+	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
 		return usrNotFoundInCtxErr
 	}
-	return c.JSON(http.StatusOK, usr)
+	return ctx.JSON(http.StatusOK, usr)
 }
 
-func (api *userApi) userUpdate(c echo.Context) error {
-	return c.String(http.StatusOK, "user.userUpdate")
-} // TODO
+func (api *userApi) userUpdate(ctx echo.Context) error {
+	usr, ok := ctx.Get("object").(user.User)
+	if !ok {
+		return usrNotFoundInCtxErr
+	}
 
-func (api *userApi) userDestroy(c echo.Context) error {
-	usr, ok := c.Get("object").(user.User)
+	data := new(user.UpdateUser)
+	if err := ctx.Bind(data); err != nil {
+		return err
+	}
+
+	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	if err != nil {
+		return err
+	}
+	if !ctxUsr.IsAdmin() {
+		// user cannot edit other users
+		if usr.ID != ctxUsr.ID {
+			return helpers.ForbiddenHttpErr
+		}
+
+		// `IsActive` and `Roles` can only be changed by admin
+		// `Username` and `Email` can only be changed by admin for now
+		if data.IsActive != nil || data.Roles != nil || data.Username != "" || data.Email != "" {
+			return helpers.ForbiddenHttpErr
+		}
+	}
+
+	if err := data.Validate(usr, api.service); err != nil {
+		return err
+	}
+
+	// ctxUser cannot set a role > their own max role
+	if user.MaxRolePriority(data.Roles) > user.MaxRolePriority(ctxUsr.Roles) {
+		return utils.NewValidationError(nil, utils.FieldError{Field: "roles", Error: noPermsToSetRolesErr})
+	}
+
+	usr, err = api.service.Update(usr.ID, *data)
+	if err != nil {
+		return err
+	}
+
+	return ctx.JSON(http.StatusOK, usr)
+}
+
+func (api *userApi) userDestroy(ctx echo.Context) error {
+	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
 		return usrNotFoundInCtxErr
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
-	ctxUsr, err := helpers.GetContextUser(c, api.service)
+	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
 	if err != nil {
 		return err
 	}
@@ -140,29 +181,29 @@ func (api *userApi) userDestroy(c echo.Context) error {
 	if err := api.service.Delete(usr.ID); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusNoContent, nil)
+	return ctx.JSON(http.StatusNoContent, nil)
 }
 
-func (api *userApi) userDestroyMultiple(c echo.Context) error {
+func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	// TODO: delete selected (ids via Query);
-	return c.String(http.StatusOK, "user.userDestroyMultiple")
+	return ctx.String(http.StatusOK, "user.userDestroyMultiple")
 } // TODO
 
-func (api *userApi) userQueryRoles(c echo.Context) error {
-	return c.String(http.StatusOK, "user.userQueryRoles")
+func (api *userApi) userQueryRoles(ctx echo.Context) error {
+	return ctx.String(http.StatusOK, "user.userQueryRoles")
 } // TODO
 
-func ctxUserOrAdminMiddleware(service *user.Service) echo.MiddlewareFunc {
+func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if id, err := strconv.Atoi(c.Param("id")); err == nil {
-				ctxUsr, err := helpers.GetContextUser(c, service)
+				ctxUsr, err := helpers.GetContextUser(c, svc)
 				if err != nil {
 					return err
 				}
 
 				if id == ctxUsr.ID || ctxUsr.IsAdmin() {
-					usr, err := service.GetByID(id)
+					usr, err := svc.GetByID(id)
 					if err == nil {
 						c.Set("object", usr)
 						return next(c)

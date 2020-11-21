@@ -7,7 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/apps/utils"
+	"github.com/trezcool/masomo/backend/business/utils"
 )
 
 var (

@@ -14,7 +14,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pmezard/go-difflib/difflib"
 
-	"github.com/trezcool/masomo/backend/apps/utils"
+	"github.com/trezcool/masomo/backend/business/utils"
 )
 
 var (
@@ -55,7 +55,8 @@ func init() {
 	_ = utils.Validate.RegisterValidation(allRolesTag, allRolesValidation)
 	utils.RegisterCustomTranslation(allRolesTag, allRolesText)
 
-	utils.Validate.RegisterStructValidation(newUserStructValidation, NewUser{})
+	utils.Validate.RegisterStructValidation(userStructValidation, NewUser{})
+	utils.Validate.RegisterStructValidation(userStructValidation, UpdateUser{})
 	utils.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
 	utils.RegisterCustomTranslation(pwdMinLenTag, pwdMinLenText)
 	utils.RegisterCustomTranslation(pwdNoSpaceTag, pwdNoSpaceText)
@@ -99,11 +100,16 @@ func allRolesValidation(fl validator.FieldLevel) bool {
 	return false
 }
 
-// newUserStructValidation does NewUser's struct level validation
-func newUserStructValidation(sl validator.StructLevel) {
-	if nu, ok := sl.Current().Interface().(NewUser); ok {
-		validateUsernameAndEmail(nu, sl)
-		validatePassword(nu, sl)
+// userStructValidation does struct level validation on NewUser and UpdateUser structs.
+func userStructValidation(sl validator.StructLevel) {
+	switch usr := sl.Current().Interface().(type) {
+	case NewUser:
+		validateUsernameAndEmail(usr, sl)
+		validatePassword(usr.Password, usr.Name, usr.Username, usr.Email, sl)
+	case UpdateUser:
+		if usr.Password != "" {
+			validatePassword(usr.Password, usr.Name, usr.Username, usr.Email, sl)
+		}
 	}
 }
 
@@ -122,9 +128,9 @@ func validateUsernameAndEmail(nu NewUser, sl validator.StructLevel) {
 // - complexity: 1 upper, 1 lower, 1 digit, 1 special
 // - no user attrs similarity
 // - no common password
-func validatePassword(nu NewUser, sl validator.StructLevel) {
+func validatePassword(pwd, name, uname, email string, sl validator.StructLevel) {
 	reportErr := func(tag string) {
-		sl.ReportError(nu.Password, "password", "Password", tag, "")
+		sl.ReportError(pwd, "password", "Password", tag, "")
 	}
 
 	var (
@@ -133,7 +139,6 @@ func validatePassword(nu NewUser, sl validator.StructLevel) {
 	)
 
 	// - minLen: 8
-	pwd := nu.Password
 	pwdLen := len(pwd)
 	if pwdLen < 8 {
 		reportErr(pwdMinLenTag)
@@ -172,11 +177,14 @@ func validatePassword(nu NewUser, sl validator.StructLevel) {
 
 	// - no user attrs similarity
 	getRatio := func(pass, usrAttr string) float64 {
+		if usrAttr == "" {
+			return 0
+		}
 		return difflib.NewMatcher(strings.Split(pass, ""), strings.Split(usrAttr, "")).QuickRatio()
 	}
-	if getRatio(pwd, nu.Name) >= pwdMaxSim ||
-		getRatio(pwd, nu.Username) >= pwdMaxSim ||
-		getRatio(pwd, nu.Email) >= pwdMaxSim {
+	if getRatio(pwd, name) >= pwdMaxSim ||
+		getRatio(pwd, uname) >= pwdMaxSim ||
+		getRatio(pwd, email) >= pwdMaxSim {
 		reportErr(pwdAttrSimTag)
 		return
 	}
