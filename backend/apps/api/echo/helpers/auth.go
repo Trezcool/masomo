@@ -100,8 +100,11 @@ func GetContextUser(ctx echo.Context, svc *user.Service) (user.User, error) {
 	}
 
 	usr, err := svc.GetByID(uid)
+	if err != nil {
+		return user.User{}, err
+	}
 	ctx.Set(contextUserKey, usr)
-	return usr, err
+	return usr, nil
 }
 
 func contextHasAnyRole(ctx echo.Context, roles []string) bool {

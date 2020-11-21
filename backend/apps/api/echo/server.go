@@ -49,6 +49,6 @@ func (s *server) Start() {
 	s.router.Logger.Fatal(s.router.Start(s.addr))
 }
 
-func home(c echo.Context) error {
-	return c.String(http.StatusOK, "Welcome to Masomo API!")
+func home(ctx echo.Context) error {
+	return ctx.String(http.StatusOK, "Welcome to Masomo API!")
 }

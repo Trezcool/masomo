@@ -41,6 +41,14 @@ var (
 		// Students: 10 - 1
 		RoleStudent: 1,
 	}
+
+	Roles = []Role{
+		{Name: "Student", Value: RoleStudent},
+		{Name: "Teacher", Value: RoleTeacher},
+		{Name: "Admin", Value: RoleAdmin},
+		{Name: "Admin Principal", Value: RoleAdminPrincipal},
+		{Name: "Admin Owner", Value: RoleAdminOwner},
+	}
 )
 
 func init() {
@@ -61,6 +69,11 @@ func MaxRolePriority(roles []string) int {
 		}
 	}
 	return max
+}
+
+type Role struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type User struct {
@@ -177,4 +190,4 @@ type QueryFilter struct {
 	UsernameOrEmail string
 	Roles           []string
 	CreatedAt       time.Time
-}
+} // TODO: filter & search

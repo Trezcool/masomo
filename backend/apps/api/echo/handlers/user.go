@@ -22,27 +22,27 @@ type userApi struct {
 }
 
 func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) {
-	a := userApi{service: svc}
+	api := userApi{service: svc}
 
 	ug := g.Group("/users")
 
 	// un-authed endpoints
-	ug.POST("/login", a.userLogin) // TODO: access attempt
-	ug.POST("/password-reset", a.userResetPassword)
-	ug.POST("/password-reset-confirm", a.userConfirmPasswordReset)
+	ug.POST("/login", api.userLogin) // TODO: access attempt
+	ug.POST("/password-reset", api.userResetPassword)
+	ug.POST("/password-reset-confirm", api.userConfirmPasswordReset)
 
 	// authed endpoints
 	ag := ug.Group("", jwt)
-	ag.POST("/register", a.userCreate, helpers.AdminMiddleware())
-	ag.GET("", a.userQuery, helpers.AdminMiddleware())
-	ag.DELETE("", a.userDestroyMultiple, helpers.AdminMiddleware())
-	ag.GET("/roles", a.userQueryRoles, helpers.AdminMiddleware())
+	ag.POST("/register", api.userCreate, helpers.AdminMiddleware())
+	ag.GET("", api.userQuery, helpers.AdminMiddleware())
+	ag.DELETE("", api.userDestroyMultiple, helpers.AdminMiddleware())
+	ag.GET("/roles", api.userQueryRoles, helpers.AdminMiddleware())
 
 	// detail endpoints
-	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(a.service))
-	dg.GET("", a.userRetrieve)
-	dg.PUT("", a.userUpdate)
-	dg.DELETE("", a.userDestroy, helpers.AdminMiddleware())
+	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(api.service))
+	dg.GET("", api.userRetrieve)
+	dg.PUT("", api.userUpdate)
+	dg.DELETE("", api.userDestroy, helpers.AdminMiddleware())
 }
 
 // Handlers
@@ -103,11 +103,11 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 } // TODO
 
 func (api *userApi) userQuery(ctx echo.Context) error {
-	res, err := api.service.QueryAll()
+	users, err := api.service.QueryAll()
 	if err != nil {
 		return err
 	}
-	return ctx.JSON(http.StatusOK, res)
+	return ctx.JSON(http.StatusOK, users)
 }
 
 func (api *userApi) userRetrieve(ctx echo.Context) error {
@@ -190,14 +190,14 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 } // TODO
 
 func (api *userApi) userQueryRoles(ctx echo.Context) error {
-	return ctx.String(http.StatusOK, "user.userQueryRoles")
-} // TODO
+	return ctx.JSON(http.StatusOK, user.Roles)
+}
 
 func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			if id, err := strconv.Atoi(c.Param("id")); err == nil {
-				ctxUsr, err := helpers.GetContextUser(c, svc)
+		return func(ctx echo.Context) error {
+			if id, err := strconv.Atoi(ctx.Param("id")); err == nil {
+				ctxUsr, err := helpers.GetContextUser(ctx, svc)
 				if err != nil {
 					return err
 				}
@@ -205,8 +205,8 @@ func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
 				if id == ctxUsr.ID || ctxUsr.IsAdmin() {
 					usr, err := svc.GetByID(id)
 					if err == nil {
-						c.Set("object", usr)
-						return next(c)
+						ctx.Set("object", usr)
+						return next(ctx)
 					} else if err != user.NotFoundErr {
 						return err
 					}
