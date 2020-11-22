@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/trezcool/masomo/backend/business/user"
+	"github.com/trezcool/masomo/backend/core/user"
 )
 
 var (

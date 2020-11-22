@@ -1,0 +1,33 @@
+##########
+# Global #
+##########
+# Mac
+.DS_Store
+
+# editor files
+.idea/
+*.iml
+*.swp
+
+
+###########
+# Backend #
+###########
+# binaries
+backend/apps/admin/admin
+backend/apps/api/api
+
+# storage
+backend/storage/media/local/files/
+
+
+############
+# Frontend #
+############
+# node
+frontend/node_modules/
+
+
+##########
+# Mobile #
+##########

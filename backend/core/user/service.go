@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/trezcool/masomo/backend/business/utils"
+	"github.com/trezcool/masomo/backend/core/utils"
 )
 
 var (

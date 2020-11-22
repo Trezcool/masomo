@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/trezcool/masomo/backend/business/utils"
+	"github.com/trezcool/masomo/backend/core/utils"
 )
 
 // Roles

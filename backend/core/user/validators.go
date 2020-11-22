@@ -14,7 +14,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pmezard/go-difflib/difflib"
 
-	"github.com/trezcool/masomo/backend/business/utils"
+	"github.com/trezcool/masomo/backend/core/utils"
 )
 
 var (

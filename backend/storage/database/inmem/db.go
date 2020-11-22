@@ -1,9 +1,9 @@
-package in_memdb
+package inmemdb
 
 import (
 	"sync"
 
-	"github.com/trezcool/masomo/backend/business/user"
+	"github.com/trezcool/masomo/backend/core/user"
 )
 
 type (

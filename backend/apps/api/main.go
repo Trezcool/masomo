@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/trezcool/masomo/backend/apps/api/echo"
-	"github.com/trezcool/masomo/backend/business/user"
-	_ "github.com/trezcool/masomo/backend/business/utils"
-	in_memdb "github.com/trezcool/masomo/backend/database/in-mem"
+	"github.com/trezcool/masomo/backend/core/user"
+	_ "github.com/trezcool/masomo/backend/core/utils"
+	in_memdb "github.com/trezcool/masomo/backend/storage/database/inmem"
 )
 
 // TODO: DB & Configs Singleton accessible apis !!!

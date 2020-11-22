@@ -8,7 +8,7 @@ import (
 
 	"github.com/trezcool/masomo/backend/apps/api/echo/handlers"
 	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
-	"github.com/trezcool/masomo/backend/business/user"
+	"github.com/trezcool/masomo/backend/core/user"
 )
 
 type server struct {

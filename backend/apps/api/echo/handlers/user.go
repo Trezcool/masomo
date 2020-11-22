@@ -9,8 +9,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
-	"github.com/trezcool/masomo/backend/business/user"
-	"github.com/trezcool/masomo/backend/business/utils"
+	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/backend/core/utils"
 )
 
 var (
