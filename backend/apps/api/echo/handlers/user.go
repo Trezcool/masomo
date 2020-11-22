@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -181,13 +182,35 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 	if err := api.service.Delete(usr.ID); err != nil {
 		return err
 	}
-	return ctx.JSON(http.StatusNoContent, nil)
+	return ctx.NoContent(http.StatusNoContent)
 }
 
 func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
-	// TODO: delete selected (ids via Query);
-	return ctx.String(http.StatusOK, "user.userDestroyMultiple")
-} // TODO
+	data := new(DestroyMultipleRequest)
+	if err := ctx.Bind(data); err != nil {
+		return err
+	}
+	if data.IDs == nil {
+		return ctx.NoContent(http.StatusNoContent)
+	}
+
+	// Say No to Suicide! ctxUser cannot delete themselves
+	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	if err != nil {
+		return err
+	}
+	sort.Ints(data.IDs)
+	if i := sort.SearchInts(data.IDs, ctxUsr.ID); i < len(data.IDs) {
+		if match := data.IDs[i]; ctxUsr.ID == match {
+			return helpers.ForbiddenHttpErr
+		}
+	}
+
+	if err := api.service.Delete(data.IDs...); err != nil {
+		return err
+	}
+	return ctx.NoContent(http.StatusNoContent)
+}
 
 func (api *userApi) userQueryRoles(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, user.Roles)
@@ -217,16 +240,22 @@ func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
 	}
 }
 
-type LoginRequest struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
-}
+type (
+	LoginRequest struct {
+		Username string `json:"username" validate:"required"`
+		Password string `json:"password" validate:"required"`
+	}
+
+	LoginResponse struct {
+		Token string `json:"token"`
+	}
+
+	DestroyMultipleRequest struct {
+		IDs []int `query:"id"`
+	}
+)
 
 func (lr *LoginRequest) Validate() error {
 	lr.Username = utils.CleanString(lr.Username, true)
 	return utils.Validate.Struct(lr)
-}
-
-type LoginResponse struct {
-	Token string `json:"token"`
 }

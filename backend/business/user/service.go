@@ -24,7 +24,7 @@ type (
 		GetUserByEmail(email string) (User, error)
 		GetUserByUsernameOrEmail(username string) (User, error)
 		UpdateUser(user User, isActive *bool) (User, error)
-		DeleteUser(id int) error
+		DeleteUsersByID(ids ...int) error
 	}
 
 	Service struct {
@@ -105,6 +105,6 @@ func (svc *Service) Update(id int, uu UpdateUser) (User, error) {
 	return svc.repo.UpdateUser(usr, uu.IsActive)
 }
 
-func (svc *Service) Delete(id int) error {
-	return svc.repo.DeleteUser(id)
+func (svc *Service) Delete(ids ...int) error {
+	return svc.repo.DeleteUsersByID(ids...)
 }

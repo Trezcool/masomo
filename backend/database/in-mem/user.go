@@ -133,10 +133,12 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive *bool) (user.User
 	return *origUsr, nil
 }
 
-func (repo *userRepository) DeleteUser(id int) error {
+func (repo *userRepository) DeleteUsersByID(ids ...int) error {
 	repo.db.mutex.Lock()
 	defer repo.db.mutex.Unlock()
-	delete(repo.db.table, id)
+	for _, id := range ids {
+		delete(repo.db.table, id)
+	}
 	return nil
 }
 
