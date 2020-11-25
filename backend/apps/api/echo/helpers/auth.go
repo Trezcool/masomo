@@ -41,7 +41,7 @@ func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
 	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
 		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
-				return nil, accountDeactivatedErr
+				return nil, errAccountDeactivated
 			}
 			now := time.Now()
 			claims := &Claims{
@@ -60,7 +60,7 @@ func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
 			return claims, nil
 		}
 	}
-	return nil, authenticationFailedErr
+	return nil, errAuthenticationFailed
 }
 
 // GenerateToken generates a signed JWT token string representing the user Claims.
@@ -70,7 +70,7 @@ func GenerateToken(claims *Claims) (string, error) {
 
 	ss, err := token.SignedString(AppJWTConfig.SigningKey)
 	if err != nil {
-		return "", tokenSigningError
+		return "", errTokenSigningFailed
 	}
 	return ss, nil
 }
@@ -81,7 +81,7 @@ func getContextClaims(ctx echo.Context) (*Claims, error) {
 			return claims, nil
 		}
 	}
-	return nil, unauthorizedErr
+	return nil, errUnauthorized
 }
 
 func GetContextUser(ctx echo.Context, svc *user.Service) (user.User, error) {

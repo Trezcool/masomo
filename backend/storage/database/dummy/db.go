@@ -1,4 +1,4 @@
-package inmemdb
+package dummydb
 
 import (
 	"sync"
@@ -12,8 +12,8 @@ type (
 	}
 
 	userTable struct {
+		sync.RWMutex
 		table map[int]*user.User
-		mutex sync.RWMutex
 	}
 )
 

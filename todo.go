@@ -8,7 +8,7 @@ package masomo
 TODO: cmd to add School !!!
 TODO: admin: upload CSV to bulk create users via API ???
 
-TODO: "github.com/pkg/errors" !!!
+TODO: "github.com/pkg/errors" !!! for context & error stack
 
 FE: Material Design | PrimeVue | mixture etc..
 	- Admin Site

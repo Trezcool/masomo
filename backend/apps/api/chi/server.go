@@ -1,1 +1,1 @@
-package api_chi
+package chiapi

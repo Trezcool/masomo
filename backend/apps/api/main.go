@@ -2,23 +2,24 @@ package main
 
 import (
 	"github.com/trezcool/masomo/backend/apps/api/echo"
+	_ "github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
-	_ "github.com/trezcool/masomo/backend/core/utils"
-	in_memdb "github.com/trezcool/masomo/backend/storage/database/inmem"
+	"github.com/trezcool/masomo/backend/storage/database/dummy"
 )
 
 // TODO: DB & Configs Singleton accessible apis !!!
 // TODO: graceful shutdown
+// TODO: Profiling (Benchmarking) !! https://blog.golang.org/pprof
 // TODO: load test:
 // TODO: APM/Tracing: New Relic Free :)
 // TODO: Logging: Rollbar!!! | Sentry | LogRocket
 func main() {
 	// set up DB
-	db, err := in_memdb.Open()
+	db, err := dummydb.Open()
 	errAndDie(err)
 
 	// set up services
-	usrSvc := user.NewService(in_memdb.NewUserRepository(db))
+	usrSvc := user.NewService(dummydb.NewUserRepository(db))
 
 	// TODO: move to script | SQL data migration (dev only?)
 	root := user.NewUser{
@@ -31,7 +32,7 @@ func main() {
 	_, _ = usrSvc.Create(root)
 
 	// start API server
-	app := api_echo.NewServer(":8080", usrSvc)
+	app := echoapi.NewServer(":8080", usrSvc)
 	app.Start()
 }
 
@@ -40,3 +41,8 @@ func errAndDie(err error) { // TODO: log.Fatal and return instead
 		panic(err)
 	}
 }
+
+/*
+[{"id":1,"name":"User1","username":"awe","email":"awe@test.cd","is_active":true,"roles":null,"created_at":"2020-11-24T18:28:47.282087Z","updated_at":"2020-11-24T18:28:47.282087Z"},{"id":2,"name":"Admin1","username":"admin1","email":"admin1@test.cd","is_active":true,"roles":["admin:"],"created_at":"2020-11-24T18:28:47.394444Z","updated_at":"2020-11-24T18:28:47.394444Z"}]
+[{"id":1,"name":"User1","username":"awe","email":"awe@test.cd","is_active":true,"roles":null,"created_at":"2020-11-24T18:28:47.282087Z","updated_at":"2020-11-24T18:28:47.282087Z"},{"id":2,"name":"Admin1","username":"admin1","email":"admin1@test.cd","is_active":true,"roles":["admin:"],"created_at":"2020-11-24T18:28:47.394444Z","updated_at":"2020-11-24T18:28:47.394444Z"}]
+*/

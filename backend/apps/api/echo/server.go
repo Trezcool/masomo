@@ -1,4 +1,4 @@
-package api_echo
+package echoapi
 
 import (
 	"net/http"

@@ -1,1 +1,1 @@
-## MASOMO Frontend (Vue3)
+## MASOMO Frontend

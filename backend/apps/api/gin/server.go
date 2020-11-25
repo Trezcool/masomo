@@ -1,1 +1,1 @@
-package api_gin
+package ginapi

@@ -4,14 +4,14 @@ import (
 	"errors"
 	"time"
 
-	"github.com/trezcool/masomo/backend/core/utils"
+	"github.com/trezcool/masomo/backend/core"
 )
 
 var (
 	// errors
-	NotFoundErr       = errors.New("user not found")
-	EmailExistsErr    = errors.New("a user with this email already exists")
-	UsernameExistsErr = errors.New("a user with this username already exists")
+	ErrNotFound       = errors.New("user not found")
+	ErrEmailExists    = errors.New("a user with this email already exists")
+	ErrUsernameExists = errors.New("a user with this username already exists")
 )
 
 type (
@@ -23,6 +23,9 @@ type (
 		GetUserByUsername(username string) (User, error)
 		GetUserByEmail(email string) (User, error)
 		GetUserByUsernameOrEmail(username string) (User, error)
+		// FilterUsers applies AND operation on available QueryFilter fields.
+		// QueryFilter.Search does a case-insensitive match on one of User.Name, User.Username or User.Email.
+		FilterUsers(filter QueryFilter) ([]User, error) // TODO: make it functional ?
 		UpdateUser(user User, isActive *bool) (User, error)
 		DeleteUsersByID(ids ...int) error
 	}
@@ -39,14 +42,16 @@ func NewService(repo Repository) *Service {
 
 func (svc *Service) checkUniqueness(uname, email string, exclUsers ...User) error {
 	if err := svc.repo.CheckUsernameUniqueness(uname, email, exclUsers...); err != nil {
+		var field string
 		switch err {
-		case UsernameExistsErr:
-			return utils.NewValidationError(err, utils.FieldError{Field: "username", Error: err.Error()})
-		case EmailExistsErr:
-			return utils.NewValidationError(err, utils.FieldError{Field: "email", Error: err.Error()})
+		case ErrUsernameExists:
+			field = "username"
+		case ErrEmailExists:
+			field = "email"
 		default:
 			return err
 		}
+		return core.NewValidationError(err, core.FieldError{Field: field, Error: err.Error()})
 	}
 	return nil
 }
@@ -77,15 +82,19 @@ func (svc *Service) GetByID(id int) (User, error) {
 }
 
 func (svc *Service) GetByUsername(uname string) (User, error) {
-	return svc.repo.GetUserByUsername(utils.CleanString(uname, true))
+	return svc.repo.GetUserByUsername(core.CleanString(uname, true /* lower */))
 }
 
 func (svc *Service) GetByEmail(email string) (User, error) {
-	return svc.repo.GetUserByEmail(utils.CleanString(email, true))
+	return svc.repo.GetUserByEmail(core.CleanString(email, true /* lower */))
 }
 
 func (svc *Service) GetByUsernameOrEmail(uname string) (User, error) {
-	return svc.repo.GetUserByUsernameOrEmail(utils.CleanString(uname, true))
+	return svc.repo.GetUserByUsernameOrEmail(core.CleanString(uname, true /* lower */))
+}
+
+func (svc *Service) Filter(filter QueryFilter) ([]User, error) {
+	return svc.repo.FilterUsers(filter)
 }
 
 func (svc *Service) Update(id int, uu UpdateUser) (User, error) {

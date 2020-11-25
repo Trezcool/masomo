@@ -7,16 +7,16 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/core/utils"
+	"github.com/trezcool/masomo/backend/core"
 )
 
 var (
-	unauthorizedErr         = echo.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
-	authenticationFailedErr = echo.NewHTTPError(http.StatusBadRequest, "authentication failed")
-	accountDeactivatedErr   = echo.NewHTTPError(http.StatusForbidden, "account deactivated")
-	ForbiddenHttpErr        = echo.NewHTTPError(http.StatusForbidden, "permission denied")
-	NotFoundHttpErr         = echo.NewHTTPError(http.StatusNotFound, "not found")
-	tokenSigningError       = errors.New("failed to sign token")
+	errUnauthorized         = echo.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
+	errAuthenticationFailed = echo.NewHTTPError(http.StatusBadRequest, "authentication failed")
+	errAccountDeactivated   = echo.NewHTTPError(http.StatusForbidden, "account deactivated")
+	ErrHttpForbidden        = echo.NewHTTPError(http.StatusForbidden, "permission denied")
+	ErrHttpNotFound         = echo.NewHTTPError(http.StatusNotFound, "not found")
+	errTokenSigningFailed   = errors.New("failed to sign token")
 )
 
 func AppHTTPErrorHandler(err error, c echo.Context) {
@@ -35,11 +35,11 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 	case validator.ValidationErrors:
 		fldErrs := make(map[string]string)
 		for _, vErr := range err {
-			fldErrs[vErr.Field()] = vErr.Translate(utils.Translator)
+			fldErrs[vErr.Field()] = vErr.Translate(core.Translator)
 		}
 		code = http.StatusBadRequest
 		message = fldErrs
-	case *utils.ValidationError:
+	case *core.ValidationError:
 		if err.Fields != nil {
 			fldErrs := make(map[string]string)
 			for _, fErr := range err.Fields {

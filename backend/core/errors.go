@@ -1,4 +1,4 @@
-package utils
+package core
 
 // FieldError is used to indicate an error with a specific struct field.
 type FieldError struct {

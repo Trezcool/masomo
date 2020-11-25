@@ -9,13 +9,13 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
+	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
-	"github.com/trezcool/masomo/backend/core/utils"
 )
 
 var (
-	usrNotFoundInCtxErr  = errors.New("user object not found in echo.Context")
-	noPermsToSetRolesErr = "not enough rights to set these roles"
+	errUsrNotFoundInCtx  = errors.New("user object not found in echo.Context")
+	errNoPermsToSetRoles = "not enough rights to set these roles"
 )
 
 type userApi struct {
@@ -63,7 +63,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 		return err
 	}
 	if user.MaxRolePriority(data.Roles) > user.MaxRolePriority(ctxUsr.Roles) {
-		return utils.NewValidationError(nil, utils.FieldError{Field: "roles", Error: noPermsToSetRolesErr})
+		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
 	usr, err := api.service.Create(*data)
@@ -104,9 +104,29 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 } // TODO
 
 func (api *userApi) userQuery(ctx echo.Context) error {
-	users, err := api.service.QueryAll()
+	query := new(user.QueryFilter)
+	if err := ctx.Bind(query); err != nil {
+		return ctx.JSON(http.StatusOK, []user.User{})
+	}
+	query.Clean()
+
+	if query.IsEmpty() {
+		users, err := api.service.QueryAll()
+		if err != nil {
+			return err
+		}
+		if users == nil {
+			users = []user.User{}
+		}
+		return ctx.JSON(http.StatusOK, users)
+	}
+
+	users, err := api.service.Filter(*query)
 	if err != nil {
 		return err
+	}
+	if users == nil {
+		users = []user.User{}
 	}
 	return ctx.JSON(http.StatusOK, users)
 }
@@ -114,7 +134,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 func (api *userApi) userRetrieve(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return usrNotFoundInCtxErr
+		return errUsrNotFoundInCtx
 	}
 	return ctx.JSON(http.StatusOK, usr)
 }
@@ -122,7 +142,7 @@ func (api *userApi) userRetrieve(ctx echo.Context) error {
 func (api *userApi) userUpdate(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return usrNotFoundInCtxErr
+		return errUsrNotFoundInCtx
 	}
 
 	data := new(user.UpdateUser)
@@ -137,13 +157,13 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 	if !ctxUsr.IsAdmin() {
 		// user cannot edit other users
 		if usr.ID != ctxUsr.ID {
-			return helpers.ForbiddenHttpErr
+			return helpers.ErrHttpForbidden
 		}
 
 		// `IsActive` and `Roles` can only be changed by admin
 		// `Username` and `Email` can only be changed by admin for now
 		if data.IsActive != nil || data.Roles != nil || data.Username != "" || data.Email != "" {
-			return helpers.ForbiddenHttpErr
+			return helpers.ErrHttpForbidden
 		}
 	}
 
@@ -153,7 +173,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 
 	// ctxUser cannot set a role > their own max role
 	if user.MaxRolePriority(data.Roles) > user.MaxRolePriority(ctxUsr.Roles) {
-		return utils.NewValidationError(nil, utils.FieldError{Field: "roles", Error: noPermsToSetRolesErr})
+		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
 	usr, err = api.service.Update(usr.ID, *data)
@@ -167,7 +187,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 func (api *userApi) userDestroy(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return usrNotFoundInCtxErr
+		return errUsrNotFoundInCtx
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
@@ -176,7 +196,7 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 		return err
 	}
 	if usr.ID == ctxUsr.ID {
-		return helpers.ForbiddenHttpErr
+		return helpers.ErrHttpForbidden
 	}
 
 	if err := api.service.Delete(usr.ID); err != nil {
@@ -186,11 +206,11 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 }
 
 func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
-	data := new(DestroyMultipleRequest)
-	if err := ctx.Bind(data); err != nil {
+	query := new(DestroyMultipleRequest)
+	if err := ctx.Bind(query); err != nil {
 		return err
 	}
-	if data.IDs == nil {
+	if query.IDs == nil {
 		return ctx.NoContent(http.StatusNoContent)
 	}
 
@@ -199,14 +219,14 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	if err != nil {
 		return err
 	}
-	sort.Ints(data.IDs)
-	if i := sort.SearchInts(data.IDs, ctxUsr.ID); i < len(data.IDs) {
-		if match := data.IDs[i]; ctxUsr.ID == match {
-			return helpers.ForbiddenHttpErr
+	sort.Ints(query.IDs)
+	if i := sort.SearchInts(query.IDs, ctxUsr.ID); i < len(query.IDs) {
+		if match := query.IDs[i]; ctxUsr.ID == match {
+			return helpers.ErrHttpForbidden
 		}
 	}
 
-	if err := api.service.Delete(data.IDs...); err != nil {
+	if err := api.service.Delete(query.IDs...); err != nil {
 		return err
 	}
 	return ctx.NoContent(http.StatusNoContent)
@@ -230,12 +250,12 @@ func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
 					if err == nil {
 						ctx.Set("object", usr)
 						return next(ctx)
-					} else if err != user.NotFoundErr {
+					} else if err != user.ErrNotFound {
 						return err
 					}
 				}
 			}
-			return helpers.NotFoundHttpErr
+			return helpers.ErrHttpNotFound
 		}
 	}
 }
@@ -256,6 +276,6 @@ type (
 )
 
 func (lr *LoginRequest) Validate() error {
-	lr.Username = utils.CleanString(lr.Username, true)
-	return utils.Validate.Struct(lr)
+	lr.Username = core.CleanString(lr.Username, true /* lower */)
+	return core.Validate.Struct(lr)
 }

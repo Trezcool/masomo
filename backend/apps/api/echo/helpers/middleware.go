@@ -12,7 +12,7 @@ func AdminMiddleware(roles ...string) echo.MiddlewareFunc {
 			if claims.IsAdmin && contextHasAnyRole(ctx, roles) {
 				return next(ctx)
 			}
-			return ForbiddenHttpErr
+			return ErrHttpForbidden
 		}
 	}
 }

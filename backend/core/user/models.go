@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/trezcool/masomo/backend/core/utils"
+	"github.com/trezcool/masomo/backend/core"
 )
 
 // Roles
@@ -27,7 +27,7 @@ var (
 	AdminRoles   = []string{RoleAdmin, RoleAdminOwner, RoleAdminPrincipal}
 	TeacherRoles = []string{RoleTeacher}
 	StudentRoles = []string{RoleStudent}
-	AllRoles     = make([]string, 0, 5)
+	AllRoles     = getAllRoles()
 
 	rolePriorities = map[string]int{
 		// Admins: 30 - 21
@@ -51,10 +51,12 @@ var (
 	}
 )
 
-func init() {
-	AllRoles = append(AllRoles, AdminRoles...)
-	AllRoles = append(AllRoles, TeacherRoles...)
-	AllRoles = append(AllRoles, StudentRoles...)
+func getAllRoles() []string {
+	all := make([]string, 0, 5)
+	all = append(all, AdminRoles...)
+	all = append(all, TeacherRoles...)
+	all = append(all, StudentRoles...)
+	return all
 }
 
 func RolePriority(role string) int {
@@ -84,8 +86,8 @@ type User struct {
 	IsActive     bool      `json:"is_active"`
 	Roles        []string  `json:"roles"`
 	PasswordHash []byte    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt    time.Time `json:"created_at"` // UTC
+	UpdatedAt    time.Time `json:"updated_at"` // UTC
 }
 
 func (u *User) SetPassword(pwd string) error {
@@ -101,7 +103,7 @@ func (u *User) CheckPassword(pwd string) error {
 	return bcrypt.CompareHashAndPassword(u.PasswordHash, []byte(pwd))
 }
 
-func (u *User) roleStartsWith(prefix string) bool {
+func (u *User) RoleStartsWith(prefix string) bool {
 	for _, role := range u.Roles {
 		if strings.HasPrefix(role, prefix) {
 			return true
@@ -111,15 +113,15 @@ func (u *User) roleStartsWith(prefix string) bool {
 }
 
 func (u *User) IsAdmin() bool {
-	return u.roleStartsWith(RoleAdmin)
+	return u.RoleStartsWith(RoleAdmin)
 }
 
 func (u *User) IsTeacher() bool {
-	return u.roleStartsWith(RoleTeacher)
+	return u.RoleStartsWith(RoleTeacher)
 }
 
 func (u *User) IsStudent() bool {
-	return u.roleStartsWith(RoleStudent)
+	return u.RoleStartsWith(RoleStudent)
 }
 
 // NewUser contains information needed to create a new User.
@@ -133,11 +135,11 @@ type NewUser struct {
 }
 
 func (nu *NewUser) Validate(svc *Service) error {
-	nu.Name = utils.CleanString(nu.Name)
-	nu.Username = utils.CleanString(nu.Username, true)
-	nu.Email = utils.CleanString(nu.Email, true)
+	nu.Name = core.CleanString(nu.Name)
+	nu.Username = core.CleanString(nu.Username, true /* lower */)
+	nu.Email = core.CleanString(nu.Email, true /* lower */)
 
-	if err := utils.Validate.Struct(nu); err != nil {
+	if err := core.Validate.Struct(nu); err != nil {
 		return err
 	}
 	return svc.checkUniqueness(nu.Username, nu.Email)
@@ -155,39 +157,45 @@ type UpdateUser struct {
 }
 
 func (uu *UpdateUser) Validate(origUsr User, svc *Service) error {
-	name := utils.CleanString(uu.Name)
+	name := core.CleanString(uu.Name)
 	if name != "" {
 		uu.Name = name
 	} else {
 		uu.Name = origUsr.Name
 	}
 
-	uname := utils.CleanString(uu.Username, true)
+	uname := core.CleanString(uu.Username, true /* lower */)
 	if uname != "" {
 		uu.Username = uname
 	} else {
 		uu.Username = origUsr.Username
 	}
 
-	email := utils.CleanString(uu.Email, true)
+	email := core.CleanString(uu.Email, true /* lower */)
 	if email != "" {
 		uu.Email = email
 	} else {
 		uu.Email = origUsr.Email
 	}
 
-	if err := utils.Validate.Struct(uu); err != nil {
+	if err := core.Validate.Struct(uu); err != nil {
 		return err
 	}
 	return svc.checkUniqueness(uu.Username, uu.Email, origUsr)
 }
 
 type QueryFilter struct {
-	ID              int
-	Name            string
-	Username        string
-	Email           string
-	UsernameOrEmail string
-	Roles           []string
-	CreatedAt       time.Time
-} // TODO: filter & search
+	Search      string    `query:"search"`
+	Roles       []string  `query:"role"`
+	IsActive    *bool     `query:"is_active"`
+	CreatedFrom time.Time `query:"created_from"`
+	CreatedTo   time.Time `query:"created_to"`
+}
+
+func (qf *QueryFilter) IsEmpty() bool {
+	return qf.Search == "" && qf.Roles == nil && qf.IsActive == nil && qf.CreatedFrom.IsZero() && qf.CreatedTo.IsZero()
+}
+
+func (qf *QueryFilter) Clean() {
+	qf.Search = core.CleanString(qf.Search)
+}

@@ -14,7 +14,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pmezard/go-difflib/difflib"
 
-	"github.com/trezcool/masomo/backend/core/utils"
+	"github.com/trezcool/masomo/backend/core"
 )
 
 var (
@@ -45,28 +45,27 @@ var (
 
 	pwdNoCommonTag  = "pwdnocommon"
 	pwdNoCommonText = "password is too common"
-	commonPasswords = make([]string, 0, 19727) // number of total pwds in /assets/common-passwords.txt.gz
+	commonPasswords = loadCommonPasswords()
 )
 
+// register validators
 func init() {
-	loadCommonPasswords()
+	_ = core.Validate.RegisterValidation(allRolesTag, allRolesValidation)
+	core.RegisterCustomTranslation(allRolesTag, allRolesText)
 
-	// register validators
-	_ = utils.Validate.RegisterValidation(allRolesTag, allRolesValidation)
-	utils.RegisterCustomTranslation(allRolesTag, allRolesText)
-
-	utils.Validate.RegisterStructValidation(userStructValidation, NewUser{})
-	utils.Validate.RegisterStructValidation(userStructValidation, UpdateUser{})
-	utils.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
-	utils.RegisterCustomTranslation(pwdMinLenTag, pwdMinLenText)
-	utils.RegisterCustomTranslation(pwdNoSpaceTag, pwdNoSpaceText)
-	utils.RegisterCustomTranslation(pwdNotAllNumTag, pwdNotAllNumText)
-	utils.RegisterCustomTranslation(pwdComplexityTag, pwdComplexityText)
-	utils.RegisterCustomTranslation(pwdAttrSimTag, pwdAttrSimText)
-	utils.RegisterCustomTranslation(pwdNoCommonTag, pwdNoCommonText)
+	core.Validate.RegisterStructValidation(userStructValidation, NewUser{})
+	core.Validate.RegisterStructValidation(userStructValidation, UpdateUser{})
+	core.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
+	core.RegisterCustomTranslation(pwdMinLenTag, pwdMinLenText)
+	core.RegisterCustomTranslation(pwdNoSpaceTag, pwdNoSpaceText)
+	core.RegisterCustomTranslation(pwdNotAllNumTag, pwdNotAllNumText)
+	core.RegisterCustomTranslation(pwdComplexityTag, pwdComplexityText)
+	core.RegisterCustomTranslation(pwdAttrSimTag, pwdAttrSimText)
+	core.RegisterCustomTranslation(pwdNoCommonTag, pwdNoCommonText)
 }
 
-func loadCommonPasswords() {
+func loadCommonPasswords() []string {
+	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
 	cwd, _ := os.Getwd()
 	pwdAssetPath := filepath.Join(cwd, "backend", "assets", "common-passwords.txt.gz")
 	if file, err := os.Open(pwdAssetPath); err == nil {
@@ -75,11 +74,12 @@ func loadCommonPasswords() {
 		if gzRdr, err := gzip.NewReader(file); err == nil {
 			scanner := bufio.NewScanner(gzRdr)
 			for scanner.Scan() {
-				commonPasswords = append(commonPasswords, strings.TrimSpace(scanner.Text()))
+				pwds = append(pwds, strings.TrimSpace(scanner.Text()))
 			}
 		}
 	}
-	sort.Strings(commonPasswords)
+	sort.Strings(pwds)
+	return pwds
 }
 
 // Custom Validators
