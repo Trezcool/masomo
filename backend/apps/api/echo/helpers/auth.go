@@ -14,9 +14,10 @@ import (
 
 var (
 	// settings TODO: load from config
-	appName         = "Masomo"
-	secretKey       = []byte("secret")
-	expirationDelta = time.Hour
+	appName                = "Masomo"
+	secretKey              = []byte("secret")
+	ExpirationDelta        = 10 * time.Minute // todo: dev - 7 days
+	RefreshExpirationDelta = 4 * time.Hour
 
 	// AppJWTConfig is the default JWT auth middleware config.
 	AppJWTConfig = middleware.JWTConfig{
@@ -31,10 +32,39 @@ var (
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
 	jwt.StandardClaims
-	IsStudent bool     `json:"is_student"` // -> STUDENT PORTAL
-	IsTeacher bool     `json:"is_teacher"` // -> TEACHER PORTAL
-	IsAdmin   bool     `json:"is_admin"`   // -> ADMIN PORTAL
-	Roles     []string `json:"roles"`
+	OriginalIssuedAt int64    `json:"oriat,omitempty"`
+	IsStudent        bool     `json:"is_student,omitempty"` // -> STUDENT PORTAL
+	IsTeacher        bool     `json:"is_teacher,omitempty"` // -> TEACHER PORTAL
+	IsAdmin          bool     `json:"is_admin,omitempty"`   // -> ADMIN PORTAL
+	Roles            []string `json:"roles,omitempty"`
+}
+
+func GetUserClaims(usr user.User, origIat ...int64) *Claims {
+	now := time.Now()
+	nownix := now.Unix()
+
+	var oriat int64
+	if len(origIat) > 0 {
+		oriat = origIat[0]
+	} else {
+		oriat = nownix
+	}
+
+	claims := &Claims{
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    appName,
+			Subject:   strconv.Itoa(usr.ID),
+			Audience:  "Academia",
+			ExpiresAt: now.Add(ExpirationDelta).Unix(),
+			IssuedAt:  nownix,
+		},
+		OriginalIssuedAt: oriat,
+		IsStudent:        usr.IsStudent(),
+		IsTeacher:        usr.IsTeacher(),
+		IsAdmin:          usr.IsAdmin(),
+		Roles:            usr.Roles,
+	}
+	return claims
 }
 
 func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
@@ -43,21 +73,7 @@ func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
 			if !usr.IsActive {
 				return nil, errAccountDeactivated
 			}
-			now := time.Now()
-			claims := &Claims{
-				StandardClaims: jwt.StandardClaims{
-					Issuer:    appName,
-					Subject:   strconv.Itoa(usr.ID),
-					Audience:  "Academia",
-					ExpiresAt: now.Add(expirationDelta).Unix(),
-					IssuedAt:  now.Unix(),
-				},
-				IsStudent: usr.IsStudent(),
-				IsTeacher: usr.IsTeacher(),
-				IsAdmin:   usr.IsAdmin(),
-				Roles:     usr.Roles,
-			}
-			return claims, nil
+			return GetUserClaims(usr), nil
 		}
 	}
 	return nil, errAuthenticationFailed
@@ -75,23 +91,29 @@ func GenerateToken(claims *Claims) (string, error) {
 	return ss, nil
 }
 
-func getContextClaims(ctx echo.Context) (*Claims, error) {
+func getContextClaims(ctx echo.Context) (Claims, error) {
 	if token, ok := ctx.Get(AppJWTConfig.ContextKey).(*jwt.Token); ok {
 		if claims, ok := token.Claims.(*Claims); ok {
-			return claims, nil
+			return *claims, nil
 		}
 	}
-	return nil, errUnauthorized
+	return Claims{}, errUnauthorized
 }
 
-func GetContextUser(ctx echo.Context, svc *user.Service) (user.User, error) {
+func GetContextUser(ctx echo.Context, svc *user.Service, clms ...Claims) (user.User, error) {
 	if usr, ok := ctx.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
 
-	claims, err := getContextClaims(ctx)
-	if err != nil {
-		return user.User{}, err
+	var claims Claims
+	var err error
+	if len(clms) > 0 {
+		claims = clms[0]
+	} else {
+		claims, err = getContextClaims(ctx)
+		if err != nil {
+			return user.User{}, err
+		}
 	}
 
 	uid, err := strconv.Atoi(claims.Subject)
@@ -114,8 +136,8 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	if claims, err := getContextClaims(ctx); err == nil {
 		sort.Strings(claims.Roles)
 		for _, role := range roles {
-			if idx := sort.SearchStrings(claims.Roles, role); idx < len(claims.Roles) {
-				if match := claims.Roles[idx]; role == match {
+			if i := sort.SearchStrings(claims.Roles, role); i < len(claims.Roles) {
+				if match := claims.Roles[i]; role == match {
 					return true
 				}
 			}
@@ -124,4 +146,28 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	return false
 }
 
-// TODO: token refresh !!!
+func RefreshToken(ctx echo.Context, svc *user.Service) (string, error) {
+	claims, err := getContextClaims(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	usr, err := GetContextUser(ctx, svc, claims)
+	if err != nil {
+		return "", err
+	}
+
+	// check if user is still active
+	if !usr.IsActive {
+		return "", errAccountDeactivated
+	}
+
+	// check if refresh has not expired
+	expTime := time.Unix(claims.OriginalIssuedAt, 0).Add(RefreshExpirationDelta)
+	if time.Now().After(expTime) {
+		return "", errRefreshExpired
+	}
+
+	newClaims := GetUserClaims(usr, claims.OriginalIssuedAt)
+	return GenerateToken(newClaims)
+}

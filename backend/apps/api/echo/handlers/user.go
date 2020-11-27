@@ -28,12 +28,15 @@ func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) 
 	ug := g.Group("/users")
 
 	// un-authed endpoints
-	ug.POST("/login", api.userLogin) // TODO: access attempt
+	// TODO: access attempt
+	// TODO: no concurrent sessions
+	ug.POST("/login", api.userLogin)
 	ug.POST("/password-reset", api.userResetPassword)
 	ug.POST("/password-reset-confirm", api.userConfirmPasswordReset)
 
 	// authed endpoints
 	ag := ug.Group("", jwt)
+	ag.POST("/token-refresh", api.userRefreshToken)
 	ag.POST("/register", api.userCreate, helpers.AdminMiddleware())
 	ag.GET("", api.userQuery, helpers.AdminMiddleware())
 	ag.DELETE("", api.userDestroyMultiple, helpers.AdminMiddleware())
@@ -49,8 +52,8 @@ func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) 
 // Handlers
 
 func (api *userApi) userCreate(ctx echo.Context) error {
-	data := new(user.NewUser)
-	if err := ctx.Bind(data); err != nil {
+	var data user.NewUser
+	if err := ctx.Bind(&data); err != nil {
 		return err
 	}
 	if err := data.Validate(api.service); err != nil {
@@ -66,7 +69,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
-	usr, err := api.service.Create(*data)
+	usr, err := api.service.Create(data)
 	if err != nil {
 		return err
 	}
@@ -75,8 +78,8 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 }
 
 func (api *userApi) userLogin(ctx echo.Context) error {
-	data := new(LoginRequest)
-	if err := ctx.Bind(data); err != nil {
+	var data LoginRequest
+	if err := ctx.Bind(&data); err != nil {
 		return err
 	}
 	if err := data.Validate(); err != nil {
@@ -104,8 +107,8 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 } // TODO
 
 func (api *userApi) userQuery(ctx echo.Context) error {
-	query := new(user.QueryFilter)
-	if err := ctx.Bind(query); err != nil {
+	var query user.QueryFilter
+	if err := ctx.Bind(&query); err != nil {
 		return ctx.JSON(http.StatusOK, []user.User{})
 	}
 	query.Clean()
@@ -121,7 +124,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 		return ctx.JSON(http.StatusOK, users)
 	}
 
-	users, err := api.service.Filter(*query)
+	users, err := api.service.Filter(query)
 	if err != nil {
 		return err
 	}
@@ -145,7 +148,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		return errUsrNotFoundInCtx
 	}
 
-	data := new(user.UpdateUser)
+	var data user.UpdateUser
 	if err := ctx.Bind(data); err != nil {
 		return err
 	}
@@ -176,7 +179,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
-	usr, err = api.service.Update(usr.ID, *data)
+	usr, err = api.service.Update(usr.ID, data)
 	if err != nil {
 		return err
 	}
@@ -206,8 +209,8 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 }
 
 func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
-	query := new(DestroyMultipleRequest)
-	if err := ctx.Bind(query); err != nil {
+	var query DestroyMultipleRequest
+	if err := ctx.Bind(&query); err != nil {
 		return err
 	}
 	if query.IDs == nil {
@@ -234,6 +237,14 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 
 func (api *userApi) userQueryRoles(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, user.Roles)
+}
+
+func (api *userApi) userRefreshToken(ctx echo.Context) error {
+	token, err := helpers.RefreshToken(ctx, api.service)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
 func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {

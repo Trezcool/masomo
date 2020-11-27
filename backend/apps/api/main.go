@@ -41,8 +41,3 @@ func errAndDie(err error) { // TODO: log.Fatal and return instead
 		panic(err)
 	}
 }
-
-/*
-[{"id":1,"name":"User1","username":"awe","email":"awe@test.cd","is_active":true,"roles":null,"created_at":"2020-11-24T18:28:47.282087Z","updated_at":"2020-11-24T18:28:47.282087Z"},{"id":2,"name":"Admin1","username":"admin1","email":"admin1@test.cd","is_active":true,"roles":["admin:"],"created_at":"2020-11-24T18:28:47.394444Z","updated_at":"2020-11-24T18:28:47.394444Z"}]
-[{"id":1,"name":"User1","username":"awe","email":"awe@test.cd","is_active":true,"roles":null,"created_at":"2020-11-24T18:28:47.282087Z","updated_at":"2020-11-24T18:28:47.282087Z"},{"id":2,"name":"Admin1","username":"admin1","email":"admin1@test.cd","is_active":true,"roles":["admin:"],"created_at":"2020-11-24T18:28:47.394444Z","updated_at":"2020-11-24T18:28:47.394444Z"}]
-*/

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/trezcool/masomo/backend/core"
 )
@@ -14,6 +15,7 @@ var (
 	errUnauthorized         = echo.NewHTTPError(http.StatusUnauthorized, "user not authenticated")
 	errAuthenticationFailed = echo.NewHTTPError(http.StatusBadRequest, "authentication failed")
 	errAccountDeactivated   = echo.NewHTTPError(http.StatusForbidden, "account deactivated")
+	errRefreshExpired       = echo.NewHTTPError(http.StatusForbidden, "refresh has expired")
 	ErrHttpForbidden        = echo.NewHTTPError(http.StatusForbidden, "permission denied")
 	ErrHttpNotFound         = echo.NewHTTPError(http.StatusNotFound, "not found")
 	errTokenSigningFailed   = errors.New("failed to sign token")
@@ -25,6 +27,11 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 
 	switch err := err.(type) {
 	case *echo.HTTPError:
+		if err == middleware.ErrJWTMissing {
+			code = http.StatusUnauthorized
+			message = err.Message
+			break
+		}
 		if err.Internal != nil {
 			if herr, ok := err.Internal.(*echo.HTTPError); ok {
 				err = herr
