@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: echo $PWD
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
@@ -31,7 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - run: echo $PWD
 
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
