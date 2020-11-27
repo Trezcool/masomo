@@ -23,6 +23,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.33.0
+          working-directory: backend
 
   gobuild:
     name: Go Build
