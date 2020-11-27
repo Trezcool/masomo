@@ -297,3 +297,5 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 		})
 	}
 }
+
+// Trigger CI
