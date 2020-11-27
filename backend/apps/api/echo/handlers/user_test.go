@@ -62,6 +62,7 @@ func newAuthRequest(method, path, token string, data ...[]byte) (*http.Request, 
 	return req, rec
 }
 
+// nolint
 func newRequest(method, path string, data ...[]byte) (*http.Request, *httptest.ResponseRecorder) {
 	return newAuthRequest(method, path, "", data...)
 }
@@ -297,5 +298,3 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 		})
 	}
 }
-
-// Trigger CI

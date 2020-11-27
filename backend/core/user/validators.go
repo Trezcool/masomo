@@ -144,7 +144,7 @@ func validatePassword(pwd, name, uname, email string, sl validator.StructLevel) 
 		reportErr(pwdMinLenTag)
 		return
 	}
-	for _, char := range []rune(pwd) {
+	for _, char := range pwd {
 		// - no whitespace
 		if unicode.IsSpace(char) {
 			reportErr(pwdNoSpaceTag)

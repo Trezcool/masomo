@@ -18,7 +18,7 @@ var (
 	// custom validation tags & texts
 	alphaNumUnderTag   = "alphanum_"
 	alphaNumUnderText  = "only alphanumeric characters and underscores are allowed"
-	alphaNumUnderRegex = regexp.MustCompile("^[\\w\\s]+$")
+	alphaNumUnderRegex = regexp.MustCompile(`^[\\w\\s]+$`)
 
 	requiredTag     = "required"
 	requiredWithTag = "required_with"
