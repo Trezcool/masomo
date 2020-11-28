@@ -46,12 +46,12 @@ jobs:
     - name: Test
       run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
+    - run: ls -a
+
     - name: Upload test coverage
       uses: codecov/codecov-action@v1.0.15
       with:
         name: masomo-go
         token: ${{ secrets.CODECOV_TOKEN }}
-        directory: backend
-        file: ./coverage.txt
-        env_vars: GO
+        file: ./backend/coverage.txt
         verbose: true
