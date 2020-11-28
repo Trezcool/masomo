@@ -44,4 +44,12 @@ jobs:
       run: go build -v -race ./...
 
     - name: Test
-      run: go test -v ./...
+      run: go test -v -coverprofile=cov.txt -covermode=atomic ./...
+
+    - name: Upload test coverage
+      uses: codecov/codecov-action@v1.0.15
+      with:
+        name: masomo-go
+        # token: f64cf858-6c49-4503-ab35-3cd211c6171a # todo: secret
+        file: cov.txt
+        env_vars: GO
