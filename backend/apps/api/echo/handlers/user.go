@@ -30,6 +30,7 @@ func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) 
 	// un-authed endpoints
 	// TODO: access attempt
 	// TODO: no concurrent sessions
+	// TODO: rate limit `/password-reset` & `/password-reset-confirm`
 	ug.POST("/login", api.userLogin)
 	ug.POST("/password-reset", api.userResetPassword)
 	ug.POST("/password-reset-confirm", api.userConfirmPasswordReset)
@@ -99,8 +100,23 @@ func (api *userApi) userLogin(ctx echo.Context) error {
 }
 
 func (api *userApi) userResetPassword(ctx echo.Context) error {
-	return ctx.String(http.StatusOK, "user.userResetPassword")
-} // TODO
+	var data PasswordResetRequest
+	if err := ctx.Bind(&data); err != nil {
+		return err
+	}
+	if err := data.Validate(); err != nil {
+		return err
+	}
+
+	if err := api.service.RequestPasswordReset(data.Email); !(err == nil || err == user.ErrNotFound) {
+		// do not return error to attacker
+		ctx.Logger().Error(err)
+	}
+	return ctx.JSON(http.StatusOK, SuccessResponse{
+		Success: "If the email address supplied is associated with an active account on this system, " +
+			"an email will arrive in your inbox shortly with instructions to reset your password.",
+	})
+}
 
 func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 	return ctx.String(http.StatusOK, "user.userConfirmPasswordReset")
@@ -281,6 +297,14 @@ type (
 		Token string `json:"token"`
 	}
 
+	PasswordResetRequest struct {
+		Email string `json:"email" validate:"required,email"`
+	}
+
+	SuccessResponse struct {
+		Success string `json:"success"`
+	}
+
 	DestroyMultipleRequest struct {
 		IDs []int `query:"id"`
 	}
@@ -289,4 +313,9 @@ type (
 func (lr *LoginRequest) Validate() error {
 	lr.Username = core.CleanString(lr.Username, true /* lower */)
 	return core.Validate.Struct(lr)
+}
+
+func (pr *PasswordResetRequest) Validate() error {
+	pr.Email = core.CleanString(pr.Email, true /* lower */)
+	return core.Validate.Struct(pr)
 }

@@ -88,6 +88,7 @@ type User struct {
 	PasswordHash []byte    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"` // UTC
 	UpdatedAt    time.Time `json:"updated_at"` // UTC
+	LastLogin    time.Time `json:"last_login"` // UTC
 }
 
 func (u *User) SetPassword(pwd string) error {

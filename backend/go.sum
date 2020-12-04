@@ -25,6 +25,12 @@ github.com/mattn/go-isatty v0.0.12 h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHX
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/sendgrid/rest v1.0.2 h1:xdfALkR1m9eqf41/zEnUmV0fw4b31ZzGZ4Dj5f2/w04=
+github.com/sendgrid/rest v2.6.2+incompatible h1:zGMNhccsPkIc8SvU9x+qdDz2qhFoGUPGGC4mMvTondA=
+github.com/sendgrid/rest v2.6.2+incompatible/go.mod h1:kXX7q3jZtJXK5c5qK83bSGMdV6tsOE70KbHoqJls4lE=
+github.com/sendgrid/sendgrid-go v1.2.0 h1:2K3teZdhaPe12ftFyFL4AWDH4QmNPc+sCi6mWFx5+oo=
+github.com/sendgrid/sendgrid-go v3.7.2+incompatible h1:ePQr9ns8so+28whk+gLKRYiyI5IiCESkDIqy7cjiwLg=
+github.com/sendgrid/sendgrid-go v3.7.2+incompatible/go.mod h1:QRQt+LX/NmgVEvmdRw0VT/QgUn499+iza2FnDca9fg8=
 github.com/stretchr/objx v0.1.0 h1:4G4v2dO3VZwixGIRoQ5Lfboy6nUhCyYzaqnIAPPhYs4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=

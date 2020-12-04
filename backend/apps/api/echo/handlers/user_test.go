@@ -1,41 +1,25 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
+	"net/mail"
 	"net/url"
-	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
 	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/backend/services/email/dummy"
 	"github.com/trezcool/masomo/backend/storage/database/dummy"
+	"github.com/trezcool/masomo/backend/tests"
 )
-
-var errMissingToken = httpErr{Error: "missing or malformed jwt"}
-
-type httpErr struct {
-	Error string `json:"error"`
-}
-
-func initEcho(svc *user.Service) *echo.Echo {
-	e := echo.New()
-	e.Pre(middleware.RemoveTrailingSlash())
-	e.HTTPErrorHandler = helpers.AppHTTPErrorHandler
-	v1 := e.Group("/v1")
-	jwtMid := middleware.JWTWithConfig(helpers.AppJWTConfig)
-	RegisterUserAPI(v1, jwtMid, svc)
-	return e
-}
 
 func setup(t *testing.T) (*echo.Echo, user.Repository) {
 	db, err := dummydb.Open()
@@ -43,127 +27,15 @@ func setup(t *testing.T) (*echo.Echo, user.Repository) {
 		t.Fatalf("setup() failed: %v", err)
 	}
 	repo := dummydb.NewUserRepository(db)
-	svc := user.NewService(repo)
-	e := initEcho(svc)
-	return e, repo
-}
-
-func newAuthRequest(method, path, token string, data ...[]byte) (*http.Request, *httptest.ResponseRecorder) {
-	var body bytes.Buffer
-	if len(data) > 0 {
-		body.Write(data[0])
-	}
-	req := httptest.NewRequest(method, path, &body)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	if token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
-	}
-	rec := httptest.NewRecorder()
-	return req, rec
-}
-
-// nolint
-func newRequest(method, path string, data ...[]byte) (*http.Request, *httptest.ResponseRecorder) {
-	return newAuthRequest(method, path, "", data...)
-}
-
-func createUser(
-	t *testing.T,
-	repo user.Repository,
-	name, uname, email, pwd string,
-	roles []string,
-	isActive bool,
-	createdAt ...time.Time,
-) user.User {
-	tstamp := time.Now().UTC()
-	if len(createdAt) > 0 {
-		tstamp = createdAt[0].UTC()
-	}
-	usr := user.User{
-		Name:      name,
-		Username:  uname,
-		Email:     email,
-		Roles:     roles,
-		IsActive:  isActive,
-		CreatedAt: tstamp,
-		UpdatedAt: tstamp,
-	}
-	if pwd != "" {
-		if err := usr.SetPassword(pwd); err != nil {
-			t.Fatalf("createUser() failed: %v", err)
-		}
-	}
-	usr, err := repo.CreateUser(usr)
-	if err != nil {
-		t.Fatalf("createUser() failed: %v", err)
-	}
-	return usr
-}
-
-func getToken(t *testing.T, usr user.User) string {
-	claims := helpers.GetUserClaims(usr)
-	token, err := helpers.GenerateToken(claims)
-	if err != nil {
-		t.Fatalf("getToken() failed: %v", err)
-	}
-	return token
-}
-
-func marchallList(t *testing.T, objs ...interface{}) []byte {
-	data, err := json.Marshal(objs)
-	if err != nil {
-		t.Fatalf("marchallList() failed: %v", err)
-	}
-	return data
-}
-
-func marchallObj(t *testing.T, obj interface{}) []byte {
-	data, err := json.Marshal(obj)
-	if err != nil {
-		t.Fatalf("marchallList() failed: %v", err)
-	}
-	return data
-}
-
-func jsonBytesEqual(t *testing.T, b1, b2 []byte) (bool, error) {
-	var j1, j2 interface{}
-	if err := json.Unmarshal(b1, &j1); err != nil {
-		return false, err
-	}
-	if err := json.Unmarshal(b2, &j2); err != nil {
-		return false, err
-	}
-	if reflect.DeepEqual(j1, j2) {
-		return true, nil
-	}
-	return assert.ElementsMatch(t, j1, j2), nil
-}
-
-type httpTest struct {
-	name     string
-	method   string
-	path     string
-	body     []byte
-	token    string
-	wantCode int
-	wantData []byte
-}
-
-func checkCodeAndData(t *testing.T, tt httpTest, rec *httptest.ResponseRecorder) {
-	if rec.Code != tt.wantCode {
-		t.Errorf("failed! code = %v; wantCode %v", rec.Code, tt.wantCode)
-	}
-	ok, err := jsonBytesEqual(t, rec.Body.Bytes(), tt.wantData)
-	if err != nil {
-		t.Errorf("jsonBytesEqual() failed to compare; err %v", err)
-	}
-	if !ok {
-		t.Errorf("failed! data = %v; wantData %v", rec.Body.String(), string(tt.wantData))
-	}
+	mailSvc := dummymail.NewService(appName, defaultFromEmail)
+	svc := user.NewService(repo, mailSvc, secretKey, passwordResetTimeoutDelta)
+	app, v1, jwtMid := initApp()
+	RegisterUserAPI(v1, jwtMid, svc)
+	return app, repo
 }
 
 func Test_userApi_userQuery(t *testing.T) {
-	e, repo := setup(t)
+	app, repo := setup(t)
 
 	path := func(search string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
 		v := make(url.Values)
@@ -193,13 +65,13 @@ func Test_userApi_userQuery(t *testing.T) {
 	t4 := now.Add(4 * time.Hour)
 	t5 := now.Add(5 * time.Hour)
 
-	usr1 := createUser(t, repo, "User", "awe", "awe@test.cd", "", nil, true, t1)
-	usr2 := createUser(t, repo, "King", "user02", "king@test.cd", "", nil, true)
-	student := createUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
-	admin := createUser(t, repo, "Admin", "admin", "admin@test.cd", "", []string{user.RoleAdmin}, true, t2.Truncate(time.Second))
-	principal := createUser(t, repo, "Principal", "princip", "princip@test.cd", "", []string{user.RoleAdminPrincipal}, true)
-	teacher := createUser(t, repo, "Teacher", "teacher", "teacher@test.cd", "", []string{user.RoleTeacher}, true, t3)
-	naughty := createUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
+	usr1 := testutil.CreateUser(t, repo, "User", "awe", "awe@test.cd", "", nil, true, t1)
+	usr2 := testutil.CreateUser(t, repo, "King", "user02", "king@test.cd", "", nil, true)
+	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	admin := testutil.CreateUser(t, repo, "Admin", "admin", "admin@test.cd", "", []string{user.RoleAdmin}, true, t2.Truncate(time.Second))
+	principal := testutil.CreateUser(t, repo, "Principal", "princip", "princip@test.cd", "", []string{user.RoleAdminPrincipal}, true)
+	teacher := testutil.CreateUser(t, repo, "Teacher", "teacher", "teacher@test.cd", "", []string{user.RoleTeacher}, true, t3)
+	naughty := testutil.CreateUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
 
 	adminToken := getToken(t, admin)
 	empty := marchallList(t)
@@ -232,18 +104,18 @@ func Test_userApi_userQuery(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
-			e.ServeHTTP(rec, req)
-			defer func() { _ = e.Close() }()
+			app.ServeHTTP(rec, req)
+			defer app.Close()
 			checkCodeAndData(t, tt, rec)
 		})
 	}
 }
 
 func Test_userApi_userRefreshToken(t *testing.T) {
-	e, repo := setup(t)
+	app, repo := setup(t)
 
-	naughty := createUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
-	student := createUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	naughty := testutil.CreateUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
+	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 
 	now := time.Now()
 	unrefreshableClaims := &helpers.Claims{
@@ -251,10 +123,10 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 			Issuer:    "Masomo",
 			Subject:   strconv.Itoa(student.ID),
 			Audience:  "Academia",
-			ExpiresAt: now.Add(helpers.ExpirationDelta).Unix(),
+			ExpiresAt: now.Add(jwtExpirationDelta).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OriginalIssuedAt: now.Add(-2 * helpers.RefreshExpirationDelta).Unix(), // older than threshold
+		OriginalIssuedAt: now.Add(-2 * jwtRefreshExpirationDelta).Unix(), // older than threshold
 		IsStudent:        student.IsStudent(),
 		IsTeacher:        student.IsTeacher(),
 		IsAdmin:          student.IsAdmin(),
@@ -277,8 +149,8 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
-			e.ServeHTTP(rec, req)
-			defer func() { _ = e.Close() }()
+			app.ServeHTTP(rec, req)
+			defer app.Close()
 
 			// cannot guess new token.. just check that it's not empty
 			if tt.name == "Token refreshed" {
@@ -295,6 +167,75 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 				return
 			}
 			checkCodeAndData(t, tt, rec)
+		})
+	}
+}
+
+func Test_userApi_userResetPassword(t *testing.T) {
+	app, _ := setup(t)
+
+	//student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	successData := marchallObj(t, SuccessResponse{Success: "If the email address supplied is associated with an active account on this system, " +
+		"an email will arrive in your inbox shortly with instructions to reset your password."})
+
+	pathRegex, err := regexp.Compile("/password-reset/.+/.+")
+	if err != nil {
+		t.Errorf("pathRegex failed, %v", err)
+	}
+
+	type extraTest struct {
+		emailSent bool
+		to        mail.Address
+	}
+	tests := []httpTest{
+		{name: "required fields", wantCode: http.StatusBadRequest, wantData: marchallObj(t, PasswordResetRequest{Email: "this field is required"})},
+		{name: "invalid email", wantCode: http.StatusBadRequest, body: marchallObj(t, PasswordResetRequest{Email: "lol"}),
+			wantData: marchallObj(t, PasswordResetRequest{Email: "email must be a valid email address"})},
+		{name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: "lol@test.com"}), wantData: successData,
+			extra: extraTest{emailSent: false}},
+		// fixme...
+		//{name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}), wantData: successData,
+		//	extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}}},
+	}
+	for _, tt := range tests {
+		tt.method = http.MethodPost
+		tt.path = "/v1/users/password-reset"
+
+		t.Run(tt.name, func(t *testing.T) {
+			dummymail.SentMessages = nil // reset
+
+			req, rec := newRequest(tt.method, tt.path, tt.body)
+			app.ServeHTTP(rec, req)
+			defer app.Close()
+			checkCodeAndData(t, tt, rec)
+
+			if extra, ok := tt.extra.(extraTest); ok {
+				if extra.emailSent {
+					if len(dummymail.SentMessages) != 1 {
+						t.Errorf("failed! len(SentMessages) = %d; want 1", len(dummymail.SentMessages))
+					}
+					msg := dummymail.SentMessages[0]
+					if msg.To[0] != extra.to {
+						t.Errorf("failed! To = %v; want %v", msg.To[0], extra.to)
+					}
+					if !strings.Contains(msg.TextContent, extra.to.Name) {
+						t.Errorf("failed! text content does not contain recipient's name \"%s\"", extra.to.Name)
+					}
+					if !strings.Contains(msg.HTMLContent, extra.to.Name) {
+						t.Errorf("failed! HTML content does not contain recipient's name \"%s\"", extra.to.Name)
+					}
+					if !pathRegex.MatchString(msg.TextContent) {
+						t.Errorf("failed! text content does not match pathRegex %v", pathRegex)
+					}
+					if !pathRegex.MatchString(msg.HTMLContent) {
+						t.Errorf("failed! HTML content does not match pathRegex %v", pathRegex)
+					}
+				} else {
+					if len(dummymail.SentMessages) > 0 {
+						t.Errorf("failed! len(SentMessages) = %d; want 0", len(dummymail.SentMessages))
+					}
+				}
+			}
 		})
 	}
 }

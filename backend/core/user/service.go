@@ -2,12 +2,17 @@ package user
 
 import (
 	"errors"
+	"fmt"
+	"net/mail"
 	"time"
 
 	"github.com/trezcool/masomo/backend/core"
 )
 
 var (
+	secretKey                 []byte
+	passwordResetTimeoutDelta time.Duration
+
 	// errors
 	ErrNotFound       = errors.New("user not found")
 	ErrEmailExists    = errors.New("a user with this email already exists")
@@ -26,18 +31,24 @@ type (
 		// FilterUsers applies AND operation on available QueryFilter fields.
 		// QueryFilter.Search does a case-insensitive match on one of User.Name, User.Username or User.Email.
 		FilterUsers(filter QueryFilter) ([]User, error) // TODO: make it functional ?
-		UpdateUser(user User, isActive *bool) (User, error)
+		UpdateUser(user User, isActive ...*bool) (User, error)
 		DeleteUsersByID(ids ...int) error
 	}
 
 	Service struct {
-		repo Repository
+		repo    Repository
+		mailSvc core.EmailService
 		//log *log.Logger
 	}
 )
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) *Service {
+	secretKey = secret
+	passwordResetTimeoutDelta = pwdResetTimeout
+	return &Service{
+		repo:    repo,
+		mailSvc: mailSvc,
+	}
 }
 
 func (svc *Service) checkUniqueness(uname, email string, exclUsers ...User) error {
@@ -112,6 +123,34 @@ func (svc *Service) Update(id int, uu UpdateUser) (User, error) {
 		}
 	}
 	return svc.repo.UpdateUser(usr, uu.IsActive)
+}
+
+func (svc *Service) SetLastLogin(usr User) (User, error) {
+	usr.LastLogin = time.Now().UTC()
+	return svc.repo.UpdateUser(usr)
+}
+
+func (svc *Service) RequestPasswordReset(email string) error {
+	usr, err := svc.repo.GetUserByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	// do not wait for it; avoid giving clues to attackers
+	go func() {
+		svc.mailSvc.SendMessages(
+			&core.EmailMessage{
+				To:           []mail.Address{{Name: usr.Name, Address: usr.Email}},
+				Subject:      "Password Reset",
+				TemplateName: "password-reset",
+				TemplateData: struct {
+					User         User
+					PwdResetPath string
+				}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), makeToken(usr))}, // todo: test with regex
+			},
+		)
+	}()
+	return nil
 }
 
 func (svc *Service) Delete(ids ...int) error {

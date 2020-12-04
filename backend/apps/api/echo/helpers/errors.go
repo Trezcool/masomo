@@ -60,6 +60,7 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 	default: // any other error is a server error
 		code = http.StatusInternalServerError
 		message = http.StatusText(http.StatusInternalServerError)
+		c.Echo().Logger.Error(err)
 	}
 
 	if c.Echo().Debug {

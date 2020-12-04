@@ -13,21 +13,29 @@ import (
 )
 
 var (
-	// settings TODO: load from config
-	appName                = "Masomo"
-	secretKey              = []byte("secret")
-	ExpirationDelta        = 10 * time.Minute // todo: dev - 7 days
-	RefreshExpirationDelta = 4 * time.Hour
+	applicationName        string
+	expirationDelta        time.Duration
+	refreshExpirationDelta time.Duration
 
 	// AppJWTConfig is the default JWT auth middleware config.
+	AppJWTConfig   middleware.JWTConfig
+	contextKey     = "userToken"
+	contextUserKey = "user"
+)
+
+func ConfigureAuth(appName string, secretKey []byte, expDelta, refreshExpDelta time.Duration) echo.MiddlewareFunc {
+	applicationName = appName
+	expirationDelta = expDelta
+	refreshExpirationDelta = refreshExpDelta
+
 	AppJWTConfig = middleware.JWTConfig{
 		SigningKey:    secretKey,
 		SigningMethod: middleware.AlgorithmHS256,
-		ContextKey:    "userToken",
+		ContextKey:    contextKey,
 		Claims:        new(Claims),
 	}
-	contextUserKey = "user"
-)
+	return middleware.JWTWithConfig(AppJWTConfig)
+}
 
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
@@ -52,10 +60,10 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 
 	claims := &Claims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer:    appName,
+			Issuer:    applicationName,
 			Subject:   strconv.Itoa(usr.ID),
 			Audience:  "Academia",
-			ExpiresAt: now.Add(ExpirationDelta).Unix(),
+			ExpiresAt: now.Add(expirationDelta).Unix(),
 			IssuedAt:  nownix,
 		},
 		OriginalIssuedAt: oriat,
@@ -72,6 +80,10 @@ func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
 		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
 				return nil, errAccountDeactivated
+			}
+			usr, err := svc.SetLastLogin(usr)
+			if err != nil {
+				return nil, err
 			}
 			return GetUserClaims(usr), nil
 		}
@@ -163,7 +175,7 @@ func RefreshToken(ctx echo.Context, svc *user.Service) (string, error) {
 	}
 
 	// check if refresh has not expired
-	expTime := time.Unix(claims.OriginalIssuedAt, 0).Add(RefreshExpirationDelta)
+	expTime := time.Unix(claims.OriginalIssuedAt, 0).Add(refreshExpirationDelta)
 	if time.Now().After(expTime) {
 		return "", errRefreshExpired
 	}

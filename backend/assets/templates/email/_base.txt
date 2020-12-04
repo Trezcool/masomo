@@ -1,0 +1,6 @@
+{{template "content" .}}
+
+Kind regards,
+
+The Masomo Team
+Masomo Inc

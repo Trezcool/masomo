@@ -2,51 +2,68 @@ package echoapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo/handlers"
 	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
 	"github.com/trezcool/masomo/backend/core/user"
 )
 
-type server struct {
-	addr   string
-	router *echo.Echo
-	usrSvc *user.Service
+type Options struct {
+	Debug                     bool
+	AppName                   string
+	SecretKey                 []byte
+	JwtExpirationDelta        time.Duration
+	JwtRefreshExpirationDelta time.Duration
+
+	UserSvc *user.Service
 }
 
-func NewServer(addr string, usrSvc *user.Service) *server {
+type server struct {
+	addr string
+	opts *Options
+	app  *echo.Echo
+}
+
+func NewServer(addr string, opts *Options) *server {
 	s := &server{
-		addr:   addr,
-		router: echo.New(),
-		usrSvc: usrSvc,
+		addr: addr,
+		opts: opts,
+		app:  echo.New(),
 	}
 	s.setup()
 	return s
 }
 
 func (s *server) setup() {
-	s.router.Pre(middleware.RemoveTrailingSlash())
-	s.router.Use(middleware.Logger())
-	s.router.Use(middleware.Recover())
+	s.app.Pre(middleware.RemoveTrailingSlash())
+	s.app.Use(middleware.Logger())
+	s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 
-	s.router.HTTPErrorHandler = helpers.AppHTTPErrorHandler
-	//s.router.Debug = true // TODO: load from config
+	s.app.HTTPErrorHandler = helpers.AppHTTPErrorHandler
+	s.app.Debug = s.opts.Debug
 
-	s.router.GET("/", home)
+	s.app.GET("/", home)
 
-	v1 := s.router.Group("/v1")
-	jwt := middleware.JWTWithConfig(helpers.AppJWTConfig)
+	v1 := s.app.Group("/v1")
+	jwt := helpers.ConfigureAuth(
+		s.opts.AppName,
+		s.opts.SecretKey,
+		s.opts.JwtExpirationDelta,
+		s.opts.JwtRefreshExpirationDelta,
+	)
 
-	handlers.RegisterUserAPI(v1, jwt, s.usrSvc)
+	handlers.RegisterUserAPI(v1, jwt, s.opts.UserSvc)
 
 	// TODO: swagger !!
 }
 
 func (s *server) Start() {
-	s.router.Logger.Fatal(s.router.Start(s.addr))
+	s.app.Logger.Fatal(s.app.Start(s.addr))
 }
 
 func home(ctx echo.Context) error {

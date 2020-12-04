@@ -37,10 +37,10 @@ func (repo *userRepository) CheckUsernameUniqueness(username, email string, excl
 	}
 
 	for _, usr := range repo.query() {
-		if usr.Username == username && !isExcluded(usr, excludedUsers, exclUsrsLen) {
+		if username != "" && usr.Username == username && !isExcluded(usr, excludedUsers, exclUsrsLen) {
 			return user.ErrUsernameExists
 		}
-		if usr.Email == email && !isExcluded(usr, excludedUsers, exclUsrsLen) {
+		if email != "" && usr.Email == email && !isExcluded(usr, excludedUsers, exclUsrsLen) {
 			return user.ErrEmailExists
 		}
 	}
@@ -173,7 +173,7 @@ func (repo *userRepository) FilterUsers(filter user.QueryFilter) ([]user.User, e
 	return users, nil
 }
 
-func (repo *userRepository) UpdateUser(usr user.User, isActive *bool) (user.User, error) {
+func (repo *userRepository) UpdateUser(usr user.User, isActive ...*bool) (user.User, error) {
 	repo.db.Lock()
 	defer repo.db.Unlock()
 
@@ -188,8 +188,8 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive *bool) (user.User
 	if usr.PasswordHash != nil {
 		origUsr.PasswordHash = usr.PasswordHash
 	}
-	if isActive != nil {
-		origUsr.IsActive = *isActive
+	if len(isActive) > 0 {
+		origUsr.IsActive = *isActive[0]
 	}
 	origUsr.Name = usr.Name
 	origUsr.Username = usr.Username
