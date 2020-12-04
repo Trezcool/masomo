@@ -27,7 +27,7 @@ func main() {
 	secretKey := []byte("secret")
 	serverName := "localhost" // default
 	defaultFromEmail := "noreply@" + serverName
-	//sendgridApiKey := ""                   // todo: TBD
+	//sendgridApiKey := "${SENDGRID_API_KEY}"
 	jwtExpirationDelta := 10 * time.Minute // todo: dev - 7 days
 	jwtRefreshExpirationDelta := 4 * time.Hour
 	passwordResetTimeoutDelta := 3 * 24 * time.Hour

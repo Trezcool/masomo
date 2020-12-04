@@ -61,7 +61,6 @@ type (
 
 var _ Service = (*service)(nil)
 
-// todo: pass ctx (with `User` or `isAdmin`) to all methods for permission checks...
 func NewService(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) Service {
 	secretKey = secret
 	passwordResetTimeoutDelta = pwdResetTimeout

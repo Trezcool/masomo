@@ -24,7 +24,6 @@ type service struct {
 
 var _ core.EmailService = (*service)(nil)
 
-// todo: test sendgrid
 func NewService(key, appName, fromEmail string) core.EmailService {
 	return &service{
 		key:        key,
@@ -50,7 +49,6 @@ func (svc *service) SendMessages(messages ...*core.EmailMessage) {
 
 func (svc *service) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
 	p := sgmail.NewPersonalization()
-	p.AddFrom(svc.from)
 	p.Subject = svc.subjPrefix + msg.Subject
 
 	for _, to := range msg.To {
@@ -64,6 +62,7 @@ func (svc *service) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
 	}
 
 	m := sgmail.NewV3Mail()
+	m.SetFrom(svc.from)
 	m.AddPersonalizations(p)
 
 	m.AddContent(
@@ -100,7 +99,8 @@ func (svc service) send(msg core.EmailMessage) {
 	}
 	req.Body = sgmail.GetRequestBody(m)
 
-	if _, err := sendgrid.API(req); err != nil { // todo: retries !!
+	res, err := sendgrid.API(req)
+	if err != nil || res.StatusCode >= http.StatusBadRequest { // todo: retries !!
 		panic(err)
 		// todo webhook to handle failed mails ??
 	}
