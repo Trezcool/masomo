@@ -6,6 +6,8 @@ import (
 	"net/mail"
 	"time"
 
+	"github.com/labstack/gommon/log"
+
 	"github.com/trezcool/masomo/backend/core"
 )
 
@@ -138,6 +140,10 @@ func (svc *Service) RequestPasswordReset(email string) error {
 
 	// do not wait for it; avoid giving clues to attackers
 	go func() {
+		token, err := makeToken(usr)
+		if err != nil {
+			log.Fatal(err) // todo: logger
+		}
 		svc.mailSvc.SendMessages(
 			&core.EmailMessage{
 				To:           []mail.Address{{Name: usr.Name, Address: usr.Email}},
@@ -146,7 +152,7 @@ func (svc *Service) RequestPasswordReset(email string) error {
 				TemplateData: struct {
 					User         User
 					PwdResetPath string
-				}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), makeToken(usr))}, // todo: test with regex
+				}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), token)}, // todo: test with regex
 			},
 		)
 	}()

@@ -29,13 +29,14 @@ func encodeUID(usr User) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(usr.ID)))
 }
 
+//nolint
 // decodeUID base64 decodes given UID
 func decodeUID(uid string) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(uid)
 }
 
 // makeToken generates a password reset token for a given User.
-func makeToken(usr User) string {
+func makeToken(usr User) (string, error) {
 	return _makeTokenWithTimestamp(usr, _numDaysSince2001(nowFunc()))
 }
 
@@ -61,7 +62,11 @@ func verifyToken(usr User, token string) error {
 	}
 
 	// check that token has not been tampered with
-	if subtle.ConstantTimeCompare([]byte(_makeTokenWithTimestamp(usr, ts)), []byte(token)) == 0 {
+	newToken, err := _makeTokenWithTimestamp(usr, ts)
+	if err != nil {
+		return err
+	}
+	if subtle.ConstantTimeCompare([]byte(newToken), []byte(token)) == 0 {
 		return errInvalidToken
 	}
 
@@ -72,10 +77,13 @@ func verifyToken(usr User, token string) error {
 	return nil
 }
 
-func _makeTokenWithTimestamp(usr User, ts int) string {
+func _makeTokenWithTimestamp(usr User, ts int) (string, error) {
 	tsB32 := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(strconv.Itoa(ts)))
-	sig := _sign(_hashValue(usr, ts))
-	return fmt.Sprintf("%s-%s", tsB32, sig)
+	sig, err := _sign(_hashValue(usr, ts))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s", tsB32, sig), nil
 }
 
 func _numDaysSince2001(t time.Time) int {
@@ -83,11 +91,14 @@ func _numDaysSince2001(t time.Time) int {
 	return int(math.Ceil(t.Sub(ref).Hours() / 24))
 }
 
-func _sign(val []byte) string {
+func _sign(val []byte) (string, error) {
 	key := sha256.Sum256(append(salt, secretKey...))
 	h := hmac.New(sha256.New, key[:])
-	h.Write(val)
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	_, err := h.Write(val)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
 func _hashValue(usr User, ts int) []byte {
