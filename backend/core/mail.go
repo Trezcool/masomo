@@ -175,8 +175,7 @@ func (m *EmailMessage) HasAttachments() bool {
 func parseTemplates() tmplCache {
 	cache := make(tmplCache)
 
-	wd := Getwd()
-	rp := filepath.Join(wd, "assets", "templates", "email")
+	rp := filepath.Join(Getwd(), "assets", "templates", "email")
 	fps, err := filepath.Glob(filepath.Join(rp, "*"))
 	if err != nil {
 		log.Fatal(fmt.Errorf("core.parseTemplates: %v", err))
