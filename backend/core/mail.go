@@ -90,8 +90,8 @@ func (m *EmailMessage) renderText() error {
 		return nil
 	}
 
-	buff := new(bytes.Buffer)
-	if err := tmpl.Execute(buff, m.getContextData()); err != nil {
+	var buff bytes.Buffer
+	if err := tmpl.Execute(&buff, m.getContextData()); err != nil {
 		return err
 	}
 	m.TextContent = buff.String()
