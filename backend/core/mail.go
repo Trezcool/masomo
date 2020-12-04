@@ -127,7 +127,7 @@ func (m *EmailMessage) Render() error {
 	return m.renderHTML()
 }
 
-func (m *EmailMessage) Attach(r io.Reader, filename, ct string) error {
+func (m *EmailMessage) Attach(r io.Reader, filename string, ct ...string) error {
 	at := Attachment{Filename: filename}
 
 	// read content
@@ -142,8 +142,8 @@ func (m *EmailMessage) Attach(r io.Reader, filename, ct string) error {
 	}
 	encoder.Close()
 
-	if ct != "" {
-		at.ContentType = ct
+	if len(ct) > 0 {
+		at.ContentType = ct[0]
 	} else {
 		at.ContentType = http.DetectContentType(content)
 	}
@@ -157,12 +157,7 @@ func (m *EmailMessage) AttachFile(path string, contentType ...string) error {
 		return err
 	}
 	defer f.Close()
-
-	ct := ""
-	if len(contentType) > 0 {
-		ct = contentType[0]
-	}
-	return m.Attach(f, filepath.Base(path), ct)
+	return m.Attach(f, filepath.Base(path), contentType...)
 }
 
 func (m *EmailMessage) HasRecipients() bool {
