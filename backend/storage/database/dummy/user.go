@@ -115,7 +115,7 @@ func (repo *userRepository) FilterUsers(filter user.QueryFilter) ([]user.User, e
 
 	users := repo.query()
 
-	// users with search keyword matching any Name, Username or Email ?
+	// users with search keyword matching any Name, Username or Email
 	if filter.Search != "" {
 		var filtered []user.User
 		for _, u := range users {
@@ -190,6 +190,9 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive ...*bool) (user.U
 	}
 	if len(isActive) > 0 {
 		origUsr.IsActive = *isActive[0]
+	}
+	if !usr.LastLogin.IsZero() {
+		origUsr.LastLogin = usr.LastLogin
 	}
 	origUsr.Name = usr.Name
 	origUsr.Username = usr.Username

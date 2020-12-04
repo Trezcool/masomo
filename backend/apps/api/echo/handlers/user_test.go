@@ -27,8 +27,8 @@ func setup(t *testing.T) (*echo.Echo, user.Repository) {
 		t.Fatalf("setup() failed: %v", err)
 	}
 	repo := dummydb.NewUserRepository(db)
-	mailSvc := dummymail.NewService(appName, defaultFromEmail)
-	svc := user.NewService(repo, mailSvc, secretKey, passwordResetTimeoutDelta)
+	mailSvc := dummymail.NewServiceMock(appName, defaultFromEmail)
+	svc := user.NewServiceMock(repo, mailSvc, secretKey, passwordResetTimeoutDelta)
 	app, v1, jwtMid := initApp()
 	RegisterUserAPI(v1, jwtMid, svc)
 	return app, repo
@@ -153,7 +153,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 			defer app.Close()
 
 			// cannot guess new token.. just check that it's not empty
-			if tt.name == "Token refreshed" {
+			if tt.wantCode == http.StatusOK {
 				if rec.Code != tt.wantCode {
 					t.Errorf("failed! code = %v; wantCode %v", rec.Code, tt.wantCode)
 				}
@@ -172,9 +172,9 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 }
 
 func Test_userApi_userResetPassword(t *testing.T) {
-	app, _ := setup(t)
+	app, repo := setup(t)
 
-	//student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 	successData := marchallObj(t, SuccessResponse{Success: "If the email address supplied is associated with an active account on this system, " +
 		"an email will arrive in your inbox shortly with instructions to reset your password."})
 
@@ -193,9 +193,8 @@ func Test_userApi_userResetPassword(t *testing.T) {
 			wantData: marchallObj(t, PasswordResetRequest{Email: "email must be a valid email address"})},
 		{name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: "lol@test.com"}), wantData: successData,
 			extra: extraTest{emailSent: false}},
-		// fixme...
-		//{name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}), wantData: successData,
-		//	extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}}},
+		{name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}), wantData: successData,
+			extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}}},
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodPost
@@ -212,7 +211,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 			if extra, ok := tt.extra.(extraTest); ok {
 				if extra.emailSent {
 					if len(dummymail.SentMessages) != 1 {
-						t.Errorf("failed! len(SentMessages) = %d; want 1", len(dummymail.SentMessages))
+						t.Fatalf("failed! len(SentMessages) = %d; want 1", len(dummymail.SentMessages))
 					}
 					msg := dummymail.SentMessages[0]
 					if msg.To[0] != extra.to {

@@ -135,7 +135,7 @@ type NewUser struct {
 	Roles           []string `json:"roles" validate:"omitempty,allroles"`
 }
 
-func (nu *NewUser) Validate(svc *Service) error {
+func (nu *NewUser) Validate(svc Service) error {
 	nu.Name = core.CleanString(nu.Name)
 	nu.Username = core.CleanString(nu.Username, true /* lower */)
 	nu.Email = core.CleanString(nu.Email, true /* lower */)
@@ -143,7 +143,7 @@ func (nu *NewUser) Validate(svc *Service) error {
 	if err := core.Validate.Struct(nu); err != nil {
 		return err
 	}
-	return svc.checkUniqueness(nu.Username, nu.Email)
+	return svc.CheckUniqueness(nu.Username, nu.Email)
 }
 
 // UpdateUser defines what information may be provided to modify an existing User.
@@ -157,7 +157,7 @@ type UpdateUser struct {
 	PasswordConfirm string   `json:"password_confirm" validate:"required_with=Password,eqfield=Password"`
 }
 
-func (uu *UpdateUser) Validate(origUsr User, svc *Service) error {
+func (uu *UpdateUser) Validate(origUsr User, svc Service) error {
 	name := core.CleanString(uu.Name)
 	if name != "" {
 		uu.Name = name
@@ -182,7 +182,7 @@ func (uu *UpdateUser) Validate(origUsr User, svc *Service) error {
 	if err := core.Validate.Struct(uu); err != nil {
 		return err
 	}
-	return svc.checkUniqueness(uu.Username, uu.Email, origUsr)
+	return svc.CheckUniqueness(uu.Username, uu.Email, origUsr)
 }
 
 type QueryFilter struct {

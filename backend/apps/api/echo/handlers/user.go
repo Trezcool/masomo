@@ -19,10 +19,10 @@ var (
 )
 
 type userApi struct {
-	service *user.Service
+	service user.Service
 }
 
-func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc *user.Service) {
+func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
 	api := userApi{service: svc}
 
 	ug := g.Group("/users")
@@ -109,7 +109,7 @@ func (api *userApi) userResetPassword(ctx echo.Context) error {
 	}
 
 	if err := api.service.RequestPasswordReset(data.Email); !(err == nil || err == user.ErrNotFound) {
-		// do not return error to attacker
+		// do not return errors to attackers
 		ctx.Logger().Error(err)
 	}
 	return ctx.JSON(http.StatusOK, SuccessResponse{
@@ -263,7 +263,7 @@ func (api *userApi) userRefreshToken(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
-func ctxUserOrAdminMiddleware(svc *user.Service) echo.MiddlewareFunc {
+func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
 			if id, err := strconv.Atoi(ctx.Param("id")); err == nil {

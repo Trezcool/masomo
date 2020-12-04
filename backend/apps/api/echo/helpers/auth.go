@@ -75,7 +75,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 	return claims
 }
 
-func Authenticate(uname, pwd string, svc *user.Service) (*Claims, error) {
+func Authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
 	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
 		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
@@ -98,7 +98,7 @@ func GenerateToken(claims *Claims) (string, error) {
 
 	ss, err := token.SignedString(AppJWTConfig.SigningKey)
 	if err != nil {
-		return "", errTokenSigningFailed
+		return "", errTokenSigningFailed // todo: wrap err
 	}
 	return ss, nil
 }
@@ -112,7 +112,7 @@ func getContextClaims(ctx echo.Context) (Claims, error) {
 	return Claims{}, errUnauthorized
 }
 
-func GetContextUser(ctx echo.Context, svc *user.Service, clms ...Claims) (user.User, error) {
+func GetContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.User, error) {
 	if usr, ok := ctx.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
@@ -158,7 +158,7 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	return false
 }
 
-func RefreshToken(ctx echo.Context, svc *user.Service) (string, error) {
+func RefreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	claims, err := getContextClaims(ctx)
 	if err != nil {
 		return "", err

@@ -40,7 +40,7 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 		code = err.Code
 		message = err.Message
 	case validator.ValidationErrors:
-		fldErrs := make(map[string]string)
+		fldErrs := make(map[string]string, len(err))
 		for _, vErr := range err {
 			fldErrs[vErr.Field()] = vErr.Translate(core.Translator)
 		}
@@ -48,7 +48,7 @@ func AppHTTPErrorHandler(err error, c echo.Context) {
 		message = fldErrs
 	case *core.ValidationError:
 		if err.Fields != nil {
-			fldErrs := make(map[string]string)
+			fldErrs := make(map[string]string, len(err.Fields))
 			for _, fErr := range err.Fields {
 				fldErrs[fErr.Field] = fErr.Error
 			}

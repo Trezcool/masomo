@@ -35,13 +35,16 @@ func NewService(key, appName, fromEmail string) core.EmailService {
 
 func (svc *service) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
-		err := msg.Render()
-		if err != nil {
-			panic(err) // todo: logger
-		}
-		if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
-			go svc.send(*msg)
-		}
+		msg := msg
+		go func() {
+			err := msg.Render()
+			if err != nil {
+				panic(err) // todo: logger
+			}
+			if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
+				svc.send(*msg)
+			}
+		}()
 	}
 }
 

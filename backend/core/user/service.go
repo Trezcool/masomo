@@ -37,23 +37,41 @@ type (
 		DeleteUsersByID(ids ...int) error
 	}
 
-	Service struct {
+	Service interface {
+		CheckUniqueness(uname, email string, exclUsers ...User) error
+		Create(nu NewUser) (User, error)
+		QueryAll() ([]User, error)
+		GetByID(id int) (User, error)
+		GetByUsername(uname string) (User, error)
+		GetByEmail(email string) (User, error)
+		GetByUsernameOrEmail(uname string) (User, error)
+		Filter(filter QueryFilter) ([]User, error)
+		Update(id int, uu UpdateUser) (User, error)
+		SetLastLogin(usr User) (User, error)
+		RequestPasswordReset(email string) error
+		Delete(ids ...int) error
+	}
+
+	service struct {
 		repo    Repository
 		mailSvc core.EmailService
 		//log *log.Logger
 	}
 )
 
-func NewService(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) *Service {
+var _ Service = (*service)(nil)
+
+// todo: pass ctx (with `User` or `isAdmin`) to all methods for permission checks...
+func NewService(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) Service {
 	secretKey = secret
 	passwordResetTimeoutDelta = pwdResetTimeout
-	return &Service{
+	return &service{
 		repo:    repo,
 		mailSvc: mailSvc,
 	}
 }
 
-func (svc *Service) checkUniqueness(uname, email string, exclUsers ...User) error {
+func (svc *service) CheckUniqueness(uname, email string, exclUsers ...User) error {
 	if err := svc.repo.CheckUsernameUniqueness(uname, email, exclUsers...); err != nil {
 		var field string
 		switch err {
@@ -69,7 +87,7 @@ func (svc *Service) checkUniqueness(uname, email string, exclUsers ...User) erro
 	return nil
 }
 
-func (svc *Service) Create(nu NewUser) (User, error) {
+func (svc *service) Create(nu NewUser) (User, error) {
 	now := time.Now().UTC()
 	usr := User{
 		Name:      nu.Name,
@@ -86,31 +104,31 @@ func (svc *Service) Create(nu NewUser) (User, error) {
 	return svc.repo.CreateUser(usr)
 }
 
-func (svc *Service) QueryAll() ([]User, error) {
+func (svc *service) QueryAll() ([]User, error) {
 	return svc.repo.QueryAllUsers()
 }
 
-func (svc *Service) GetByID(id int) (User, error) {
+func (svc *service) GetByID(id int) (User, error) {
 	return svc.repo.GetUserByID(id)
 }
 
-func (svc *Service) GetByUsername(uname string) (User, error) {
+func (svc *service) GetByUsername(uname string) (User, error) {
 	return svc.repo.GetUserByUsername(core.CleanString(uname, true /* lower */))
 }
 
-func (svc *Service) GetByEmail(email string) (User, error) {
+func (svc *service) GetByEmail(email string) (User, error) {
 	return svc.repo.GetUserByEmail(core.CleanString(email, true /* lower */))
 }
 
-func (svc *Service) GetByUsernameOrEmail(uname string) (User, error) {
+func (svc *service) GetByUsernameOrEmail(uname string) (User, error) {
 	return svc.repo.GetUserByUsernameOrEmail(core.CleanString(uname, true /* lower */))
 }
 
-func (svc *Service) Filter(filter QueryFilter) ([]User, error) {
+func (svc *service) Filter(filter QueryFilter) ([]User, error) {
 	return svc.repo.FilterUsers(filter)
 }
 
-func (svc *Service) Update(id int, uu UpdateUser) (User, error) {
+func (svc *service) Update(id int, uu UpdateUser) (User, error) {
 	usr := User{
 		ID:        id,
 		Name:      uu.Name,
@@ -127,38 +145,39 @@ func (svc *Service) Update(id int, uu UpdateUser) (User, error) {
 	return svc.repo.UpdateUser(usr, uu.IsActive)
 }
 
-func (svc *Service) SetLastLogin(usr User) (User, error) {
+func (svc *service) SetLastLogin(usr User) (User, error) {
 	usr.LastLogin = time.Now().UTC()
 	return svc.repo.UpdateUser(usr)
 }
 
-func (svc *Service) RequestPasswordReset(email string) error {
+func (svc *service) RequestPasswordReset(email string) error {
 	usr, err := svc.repo.GetUserByEmail(email)
 	if err != nil {
 		return err
 	}
-
 	// do not wait for it; avoid giving clues to attackers
-	go func() {
-		token, err := makeToken(usr)
-		if err != nil {
-			log.Fatal(err) // todo: logger
-		}
-		svc.mailSvc.SendMessages(
-			&core.EmailMessage{
-				To:           []mail.Address{{Name: usr.Name, Address: usr.Email}},
-				Subject:      "Password Reset",
-				TemplateName: "password-reset",
-				TemplateData: struct {
-					User         User
-					PwdResetPath string
-				}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), token)}, // todo: test with regex
-			},
-		)
-	}()
+	go svc.sendPasswordResetMail(usr)
 	return nil
 }
 
-func (svc *Service) Delete(ids ...int) error {
+func (svc *service) sendPasswordResetMail(usr User) {
+	token, err := makeToken(usr)
+	if err != nil {
+		log.Fatal(err) // todo: logger
+	}
+	svc.mailSvc.SendMessages(
+		&core.EmailMessage{
+			To:           []mail.Address{{Name: usr.Name, Address: usr.Email}},
+			Subject:      "Password Reset",
+			TemplateName: "password-reset",
+			TemplateData: struct {
+				User         User
+				PwdResetPath string
+			}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), token)},
+		},
+	)
+}
+
+func (svc *service) Delete(ids ...int) error {
 	return svc.repo.DeleteUsersByID(ids...)
 }

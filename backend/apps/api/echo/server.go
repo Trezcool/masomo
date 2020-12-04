@@ -20,7 +20,7 @@ type Options struct {
 	JwtExpirationDelta        time.Duration
 	JwtRefreshExpirationDelta time.Duration
 
-	UserSvc *user.Service
+	UserSvc user.Service
 }
 
 type server struct {

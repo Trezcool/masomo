@@ -68,7 +68,6 @@ func loadCommonPasswords() []string {
 	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
 	pwdAssetPath := filepath.Join(core.Getwd(), "assets", "common-passwords.txt.gz")
 	if file, err := os.Open(pwdAssetPath); err == nil {
-		//goland:noinspection GoUnhandledErrorResult
 		defer file.Close()
 		if gzRdr, err := gzip.NewReader(file); err == nil {
 			scanner := bufio.NewScanner(gzRdr)

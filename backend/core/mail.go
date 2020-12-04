@@ -160,17 +160,9 @@ func (m *EmailMessage) AttachFile(path string, contentType ...string) error {
 	return m.Attach(f, filepath.Base(path), contentType...)
 }
 
-func (m *EmailMessage) HasRecipients() bool {
-	return len(m.To) > 0
-}
-
-func (m *EmailMessage) HasContent() bool {
-	return (m.TextContent != "") || (m.HTMLContent != "")
-}
-
-func (m *EmailMessage) HasAttachments() bool {
-	return len(m.Attachments) > 0
-}
+func (m *EmailMessage) HasRecipients() bool  { return len(m.To) > 0 }
+func (m *EmailMessage) HasContent() bool     { return (m.TextContent != "") || (m.HTMLContent != "") }
+func (m *EmailMessage) HasAttachments() bool { return len(m.Attachments) > 0 }
 
 func parseTemplates() tmplCache {
 	cache := make(tmplCache)

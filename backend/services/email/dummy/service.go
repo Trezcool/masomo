@@ -7,15 +7,19 @@ import (
 	"net/mail"
 	"net/textproto"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/trezcool/masomo/backend/core"
 )
 
-var SentMessages = make([]core.EmailMessage, 0)
+var (
+	SentMessages = make([]core.EmailMessage, 0)
+	mu           sync.Mutex
+)
 
 type service struct {
-	defaultFromEmail string
+	defaultFromEmail mail.Address
 	subjPrefix       string
 }
 
@@ -23,29 +27,35 @@ var _ core.EmailService = (*service)(nil)
 
 func NewService(appName, defaultFromEmail string) core.EmailService {
 	return &service{
-		defaultFromEmail: defaultFromEmail,
+		defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
 		subjPrefix:       "[" + appName + "] ",
 	}
 }
 
 func (svc service) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
-		err := msg.Render()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
-			go svc.send(*msg)
-			SentMessages = append(SentMessages, *msg)
-		}
+		go svc.sendMessage(msg)
+	}
+}
+
+func (svc service) sendMessage(msg *core.EmailMessage) {
+	err := msg.Render()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
+		svc.send(*msg)
+		mu.Lock()
+		SentMessages = append(SentMessages, *msg)
+		mu.Unlock()
 	}
 }
 
 func (svc service) send(msg core.EmailMessage) {
-	body := &strings.Builder{}
+	body := new(strings.Builder)
 
 	// Write mail header
-	_, _ = fmt.Fprintf(body, "From: %s\r\n", svc.defaultFromEmail)
+	_, _ = fmt.Fprintf(body, "From: %s\r\n", svc.defaultFromEmail.String())
 	_, _ = fmt.Fprint(body, "MIME-Version: 1.0\r\n")
 	_, _ = fmt.Fprintf(body, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
 	_, _ = fmt.Fprintf(body, "Subject: %s\r\n", svc.subjPrefix+msg.Subject)
@@ -110,4 +120,24 @@ func (svc service) joinAddresses(addrs []mail.Address) string {
 		toJoin = append(toJoin, a.String())
 	}
 	return strings.Join(toJoin, ", ")
+}
+
+type serviceMock struct {
+	service
+}
+
+func NewServiceMock(appName, defaultFromEmail string) core.EmailService {
+	return &serviceMock{
+		service: service{
+			defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
+			subjPrefix:       "[" + appName + "] ",
+		},
+	}
+}
+
+func (svc *serviceMock) SendMessages(messages ...*core.EmailMessage) {
+	for _, msg := range messages {
+		// run synchronously
+		svc.sendMessage(msg)
+	}
 }
