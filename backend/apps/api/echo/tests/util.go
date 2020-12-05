@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	// todo: load from config
+	// todo: load from test config
 	appName                   = "Masomo"
 	secretKey                 = []byte("secret")
 	serverName                = "localhost"
@@ -48,6 +48,7 @@ func setup(t *testing.T) Server {
 	app := NewServer(
 		&Options{
 			Debug:                     false,
+			DisableReqLogs:            true,
 			AppName:                   appName,
 			SecretKey:                 secretKey,
 			JwtExpirationDelta:        jwtExpirationDelta,

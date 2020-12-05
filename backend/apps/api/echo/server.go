@@ -16,6 +16,7 @@ type (
 	Options struct {
 		Address                   string
 		Debug                     bool
+		DisableReqLogs            bool
 		AppName                   string
 		SecretKey                 []byte
 		JwtExpirationDelta        time.Duration
@@ -49,7 +50,9 @@ func NewServer(opts *Options) Server {
 
 func (s *server) setup() {
 	s.app.Pre(middleware.RemoveTrailingSlash())
-	s.app.Use(middleware.Logger())
+	if !s.opts.DisableReqLogs {
+		s.app.Use(middleware.Logger())
+	}
 	if !s.opts.Debug {
 		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 	}

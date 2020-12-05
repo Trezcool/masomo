@@ -21,6 +21,7 @@ var (
 type service struct {
 	defaultFromEmail mail.Address
 	subjPrefix       string
+	disableOutput    bool
 }
 
 var _ core.EmailService = (*service)(nil)
@@ -111,7 +112,9 @@ func (svc service) send(msg core.EmailMessage) {
 		}
 	}
 
-	log.Println(body.String())
+	if !svc.disableOutput {
+		log.Println(body.String())
+	}
 }
 
 func (svc service) joinAddresses(addrs []mail.Address) string {
@@ -131,6 +134,7 @@ func NewServiceMock(appName, defaultFromEmail string) core.EmailService {
 		service: service{
 			defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
 			subjPrefix:       "[" + appName + "] ",
+			disableOutput:    true,
 		},
 	}
 }

@@ -50,6 +50,9 @@ type (
 		SetLastLogin(usr User) (User, error)
 		RequestPasswordReset(email string) error
 		ResetPassword(rp ResetUserPassword) error
+		// SudoResetPassword resets the User's password without Token verification.
+		// To be used via the admin interface only.
+		SudoResetPassword(uname, pwd string) error
 		Delete(ids ...int) error
 	}
 
@@ -202,6 +205,20 @@ func (svc *service) ResetPassword(rp ResetUserPassword) error {
 	}
 
 	if err := usr.SetPassword(rp.Password); err != nil {
+		return err
+	}
+	if _, err := svc.repo.UpdateUser(usr); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (svc *service) SudoResetPassword(uname, pwd string) error {
+	usr, err := svc.repo.GetUserByUsernameOrEmail(uname)
+	if err != nil {
+		return err
+	}
+	if err := usr.SetPassword(pwd); err != nil {
 		return err
 	}
 	if _, err := svc.repo.UpdateUser(usr); err != nil {
