@@ -119,8 +119,19 @@ func (api *userApi) userResetPassword(ctx echo.Context) error {
 }
 
 func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
-	return ctx.String(http.StatusOK, "user.userConfirmPasswordReset")
-} // TODO
+	var data user.ResetUserPassword
+	if err := ctx.Bind(&data); err != nil {
+		return err
+	}
+	if err := data.Validate(); err != nil {
+		return err
+	}
+
+	if err := api.service.ResetPassword(data); err != nil {
+		return err
+	}
+	return ctx.JSON(http.StatusOK, SuccessResponse{Success: "Password has been reset with the new password."})
+}
 
 func (api *userApi) userQuery(ctx echo.Context) error {
 	var query user.QueryFilter

@@ -55,6 +55,7 @@ func init() {
 
 	core.Validate.RegisterStructValidation(userStructValidation, NewUser{})
 	core.Validate.RegisterStructValidation(userStructValidation, UpdateUser{})
+	core.Validate.RegisterStructValidation(userStructValidation, ResetUserPassword{})
 	core.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
 	core.RegisterCustomTranslation(pwdMinLenTag, pwdMinLenText)
 	core.RegisterCustomTranslation(pwdNoSpaceTag, pwdNoSpaceText)
@@ -108,6 +109,8 @@ func userStructValidation(sl validator.StructLevel) {
 		if usr.Password != "" {
 			validatePassword(usr.Password, usr.Name, usr.Username, usr.Email, sl)
 		}
+	case ResetUserPassword:
+		validatePassword(usr.Password, "", "", "", sl)
 	}
 }
 
@@ -189,8 +192,8 @@ func validatePassword(pwd, name, uname, email string, sl validator.StructLevel) 
 
 	// - no common passwords
 	lpwd := strings.ToLower(pwd)
-	if idx := sort.SearchStrings(commonPasswords, lpwd); idx < len(commonPasswords) {
-		if match := commonPasswords[idx]; lpwd == match {
+	if i := sort.SearchStrings(commonPasswords, lpwd); i < len(commonPasswords) {
+		if match := commonPasswords[i]; lpwd == match {
 			reportErr(pwdNoCommonTag)
 			return
 		}

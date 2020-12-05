@@ -17,27 +17,34 @@ import (
 
 var (
 	salt    = []byte("masomo.backend.core.user.token_gen")
-	nowFunc = time.Now // for test mock
+	NowFunc = time.Now // for test mock
 
 	// errors
 	errInvalidToken = errors.New("invalid token")
 	errTokenExpired = errors.New("token expired")
 )
 
-// encodeUID base64 encodes given User ID
-func encodeUID(usr User) string {
+// EncodeUID base64 encodes given User ID
+func EncodeUID(usr User) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(usr.ID)))
 }
 
-//nolint
 // decodeUID base64 decodes given UID
-func decodeUID(uid string) ([]byte, error) {
-	return base64.RawURLEncoding.DecodeString(uid)
+func decodeUID(uid string) (int, error) {
+	idBytes, err := base64.RawURLEncoding.DecodeString(uid)
+	if err != nil {
+		return 0, err
+	}
+	id, err := strconv.Atoi(string(idBytes))
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
-// makeToken generates a password reset token for a given User.
-func makeToken(usr User) (string, error) {
-	return _makeTokenWithTimestamp(usr, _numDaysSince2001(nowFunc()))
+// MakeToken generates a password reset token for a given User.
+func MakeToken(usr User) (string, error) {
+	return _makeTokenWithTimestamp(usr, _numDaysSince2001(NowFunc()))
 }
 
 // verifyToken checks that a password reset token for a given User is valid.

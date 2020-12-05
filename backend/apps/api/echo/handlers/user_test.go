@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/mail"
@@ -78,23 +79,56 @@ func Test_userApi_userQuery(t *testing.T) {
 
 	tests := []httpTest{
 		{name: "Auth required", path: "/v1/users", wantCode: http.StatusUnauthorized, wantData: marchallObj(t, errMissingToken)},
-		{name: "Admin required", path: "/v1/users", token: getToken(t, student), wantCode: http.StatusForbidden, wantData: marchallObj(t, httpErr{Error: "permission denied"})},
-		{name: "Get all", path: "/v1/users", token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher, naughty)},
+		{
+			name: "Admin required", path: "/v1/users", token: getToken(t, student), wantCode: http.StatusForbidden,
+			wantData: marchallObj(t, httpErr{Error: "permission denied"}),
+		},
+		{
+			name: "Get all", path: "/v1/users", token: adminToken,
+			wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher, naughty),
+		},
 		{name: "search (unknown)", path: path("lol", time.Time{}, time.Time{}, nil), token: adminToken, wantData: empty},
-		{name: "search=USE", path: path("USE", time.Time{}, time.Time{}, nil), token: adminToken, wantData: marchallList(t, usr1, usr2, student)},
+		{
+			name: "search=USE", path: path("USE", time.Time{}, time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, usr1, usr2, student),
+		},
 		{name: "role (unknown)", path: path("", time.Time{}, time.Time{}, nil, "lol"), token: adminToken, wantData: empty},
-		{name: "role=admin:", path: path("", time.Time{}, time.Time{}, nil, user.RoleAdmin), token: adminToken, wantData: marchallList(t, admin, principal)},
-		{name: "role=teacher:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher), token: adminToken, wantData: marchallList(t, teacher)},
-		{name: "role=teacher:,student:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher, user.RoleStudent), token: adminToken, wantData: marchallList(t, teacher, student, naughty)},
-		{name: "is_active=true", path: path("", time.Time{}, time.Time{}, bPtr(true)), token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher)},
+		{
+			name: "role=admin:", path: path("", time.Time{}, time.Time{}, nil, user.RoleAdmin),
+			token: adminToken, wantData: marchallList(t, admin, principal),
+		},
+		{
+			name: "role=teacher:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher),
+			token: adminToken, wantData: marchallList(t, teacher),
+		},
+		{
+			name: "role=teacher:,student:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher, user.RoleStudent),
+			token: adminToken, wantData: marchallList(t, teacher, student, naughty),
+		},
+		{
+			name: "is_active=true", path: path("", time.Time{}, time.Time{}, bPtr(true)),
+			token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher),
+		},
 		{name: "is_active=false", path: path("", time.Time{}, time.Time{}, bPtr(false)), token: adminToken, wantData: marchallList(t, naughty)},
-		{name: "created_from (UTC)", path: path("", t1.UTC(), time.Time{}, nil), token: adminToken, wantData: marchallList(t, usr1, admin, teacher)},
-		{name: "created_from (curr TZ)", path: path("", t1, time.Time{}, nil), token: adminToken, wantData: marchallList(t, usr1, admin, teacher)},
-		{name: "created_to (curr TZ)", path: path("", time.Time{}, t2, nil), token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, naughty)},
+		{
+			name: "created_from (UTC)", path: path("", t1.UTC(), time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, usr1, admin, teacher),
+		},
+		{
+			name: "created_from (curr TZ)", path: path("", t1, time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, usr1, admin, teacher),
+		},
+		{
+			name: "created_to (curr TZ)", path: path("", time.Time{}, t2, nil),
+			token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, naughty),
+		},
 		{name: "created_from - created_to (empty)", path: path("", t4, t5, nil), token: adminToken, wantData: empty},
 		{name: "created_from - created_to (found)", path: path("", t1, t2, nil), token: adminToken, wantData: marchallList(t, usr1, admin)},
 		{name: "all combo (empty)", path: path("USE", t1, t5, bPtr(true), user.RoleAdminPrincipal), token: adminToken, wantData: empty},
-		{name: "all combo (found)", path: path("tea", t1, t5, bPtr(true), user.RoleTeacher), token: adminToken, wantData: marchallList(t, teacher)},
+		{
+			name: "all combo (found)", path: path("tea", t1, t5, bPtr(true), user.RoleTeacher),
+			token: adminToken, wantData: marchallList(t, teacher),
+		},
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodGet
@@ -180,7 +214,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 
 	pathRegex, err := regexp.Compile("/password-reset/.+/.+")
 	if err != nil {
-		t.Errorf("pathRegex failed, %v", err)
+		t.Fatalf("pathRegex failed, %v", err)
 	}
 
 	type extraTest struct {
@@ -189,12 +223,18 @@ func Test_userApi_userResetPassword(t *testing.T) {
 	}
 	tests := []httpTest{
 		{name: "required fields", wantCode: http.StatusBadRequest, wantData: marchallObj(t, PasswordResetRequest{Email: "this field is required"})},
-		{name: "invalid email", wantCode: http.StatusBadRequest, body: marchallObj(t, PasswordResetRequest{Email: "lol"}),
-			wantData: marchallObj(t, PasswordResetRequest{Email: "email must be a valid email address"})},
-		{name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: "lol@test.com"}), wantData: successData,
-			extra: extraTest{emailSent: false}},
-		{name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}), wantData: successData,
-			extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}}},
+		{
+			name: "invalid email", wantCode: http.StatusBadRequest, body: marchallObj(t, PasswordResetRequest{Email: "lol"}),
+			wantData: marchallObj(t, PasswordResetRequest{Email: "email must be a valid email address"}),
+		},
+		{
+			name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: "lol@test.com"}),
+			wantData: successData, extra: extraTest{emailSent: false},
+		},
+		{
+			name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}),
+			wantData: successData, extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}},
+		},
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodPost
@@ -233,6 +273,110 @@ func Test_userApi_userResetPassword(t *testing.T) {
 					if len(dummymail.SentMessages) > 0 {
 						t.Errorf("failed! len(SentMessages) = %d; want 0", len(dummymail.SentMessages))
 					}
+				}
+			}
+		})
+	}
+}
+
+func Test_userApi_userConfirmPasswordReset(t *testing.T) {
+	app, repo := setup(t)
+
+	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "lol", []string{user.RoleStudent}, true)
+	validUID := user.EncodeUID(student)
+	validToken, err := user.MakeToken(student)
+	if err != nil {
+		t.Fatalf("MakeToken() failed, %v", err)
+	}
+
+	// generate an expired token
+	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
+	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
+	expiredToken, err := user.MakeToken(student)
+	if err != nil {
+		t.Fatalf("MakeToken() failed, %v", err)
+	}
+	user.NowFunc = time.Now // reset
+
+	reqMsg := "this field is required"
+	tests := []httpTest{
+		{
+			name: "required fields", wantCode: http.StatusBadRequest,
+			wantData: marchallObj(t, user.ResetUserPassword{Token: reqMsg, UID: reqMsg, Password: "password must contain at least 8 characters", PasswordConfirm: reqMsg}),
+		},
+		{
+			name: "invalid pwd: min len", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "lol", PasswordConfirm: "lol"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Password: "password must contain at least 8 characters"}),
+		},
+		{
+			name: "invalid pwd: no whitespace", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "l o loll", PasswordConfirm: "l o loll"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Password: "password must not contain whitespace"}),
+		},
+		{
+			name: "invalid pwd: not all numeric", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "12345678", PasswordConfirm: "12345678"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Password: "password cannot be entirely numeric"}),
+		},
+		{
+			name: "invalid pwd: complexity", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "lol12345", PasswordConfirm: "lol12345"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Password: "password must contain at least 1 uppercase character, 1 lowercase character, 1 digit and 1 special character"}),
+		},
+		{
+			name: "invalid pwd: too common", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "P@$$w0rd", PasswordConfirm: "P@$$w0rd"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Password: "password is too common"}),
+		},
+		{
+			name: "PasswordConfirm must = Password", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "lol", Password: "LolC@t123", PasswordConfirm: "lol"}),
+			wantData: marchallObj(t, user.ResetUserPassword{PasswordConfirm: "password_confirm must be equal to Password"}),
+		},
+		{
+			name: "invalid uid", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "bG9s", Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
+			wantData: marchallObj(t, user.ResetUserPassword{UID: "invalid value"}),
+		},
+		{
+			name: "user not found", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "lol", UID: "OTk5", Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
+			wantData: marchallObj(t, user.ResetUserPassword{UID: "invalid value"}),
+		},
+		{
+			name: "invalid token", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: "HE4TS-sigsig-sig", UID: validUID, Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Token: "invalid value"}),
+		},
+		{
+			name: "expired token", wantCode: http.StatusBadRequest,
+			body:     marchallObj(t, user.ResetUserPassword{Token: expiredToken, UID: validUID, Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
+			wantData: marchallObj(t, user.ResetUserPassword{Token: "invalid value"}),
+		},
+		{
+			name: "valid token", wantCode: http.StatusOK,
+			body:     marchallObj(t, user.ResetUserPassword{Token: validToken, UID: validUID, Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
+			wantData: marchallObj(t, SuccessResponse{Success: "Password has been reset with the new password."}),
+		},
+	}
+	for _, tt := range tests {
+		tt.method = http.MethodPost
+		tt.path = "/v1/users/password-reset-confirm"
+
+		t.Run(tt.name, func(t *testing.T) {
+			req, rec := newRequest(tt.method, tt.path, tt.body)
+			app.ServeHTTP(rec, req)
+			defer app.Close()
+			checkCodeAndData(t, tt, rec)
+
+			if tt.wantCode == http.StatusOK {
+				refreshedStudent, err := repo.GetUserByID(student.ID)
+				if err != nil {
+					t.Fatalf("GetUserByID() failed, %v", err)
+				}
+				if bytes.Equal(refreshedStudent.PasswordHash, student.PasswordHash) {
+					t.Fatalf("failed to update new password")
 				}
 			}
 		})

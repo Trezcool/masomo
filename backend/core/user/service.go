@@ -49,6 +49,7 @@ type (
 		Update(id int, uu UpdateUser) (User, error)
 		SetLastLogin(usr User) (User, error)
 		RequestPasswordReset(email string) error
+		ResetPassword(rp ResetUserPassword) error
 		Delete(ids ...int) error
 	}
 
@@ -160,7 +161,7 @@ func (svc *service) RequestPasswordReset(email string) error {
 }
 
 func (svc *service) sendPasswordResetMail(usr User) {
-	token, err := makeToken(usr)
+	token, err := MakeToken(usr)
 	if err != nil {
 		log.Fatal(err) // todo: logger
 	}
@@ -172,9 +173,41 @@ func (svc *service) sendPasswordResetMail(usr User) {
 			TemplateData: struct {
 				User         User
 				PwdResetPath string
-			}{usr, fmt.Sprintf("/password-reset/%s/%s", encodeUID(usr), token)},
+			}{usr, fmt.Sprintf("/password-reset/%s/%s", EncodeUID(usr), token)},
 		},
 	)
+}
+
+func (svc *service) ResetPassword(rp ResetUserPassword) error {
+	uid, err := decodeUID(rp.UID)
+	if err != nil {
+		return core.NewValidationError(err, core.FieldError{Field: "uid", Error: "invalid value"})
+	}
+	usr, err := svc.repo.GetUserByID(uid)
+	if err != nil {
+		switch err {
+		case ErrNotFound:
+			return core.NewValidationError(err, core.FieldError{Field: "uid", Error: "invalid value"})
+		default:
+			return err
+		}
+	}
+	if err := verifyToken(usr, rp.Token); err != nil {
+		switch err {
+		case errInvalidToken, errTokenExpired:
+			return core.NewValidationError(err, core.FieldError{Field: "token", Error: "invalid value"})
+		default:
+			return err
+		}
+	}
+
+	if err := usr.SetPassword(rp.Password); err != nil {
+		return err
+	}
+	if _, err := svc.repo.UpdateUser(usr); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (svc *service) Delete(ids ...int) error {

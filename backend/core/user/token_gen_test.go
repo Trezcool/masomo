@@ -22,19 +22,19 @@ func TestMakeVerifyToken(t *testing.T) {
 	}
 	_ = usr.SetPassword("pwd")
 
-	validToken, err := makeToken(usr)
+	validToken, err := MakeToken(usr)
 	if err != nil {
-		t.Errorf("makeToken() failed, %v", err)
+		t.Fatalf("MakeToken() failed, %v", err)
 	}
 
 	// generate an expired token
 	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
-	nowFunc = func() time.Time { return time.Now().Add(-dayLate) }
-	expiredToken, err := makeToken(usr)
+	NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
+	expiredToken, err := MakeToken(usr)
 	if err != nil {
-		t.Errorf("makeToken() failed, %v", err)
+		t.Fatalf("MakeToken() failed, %v", err)
 	}
-	nowFunc = time.Now // reset
+	NowFunc = time.Now // reset
 
 	tests := []struct {
 		name    string

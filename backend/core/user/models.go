@@ -185,6 +185,15 @@ func (uu *UpdateUser) Validate(origUsr User, svc Service) error {
 	return svc.CheckUniqueness(uu.Username, uu.Email, origUsr)
 }
 
+type ResetUserPassword struct {
+	Token           string `json:"token,omitempty" validate:"required"`
+	UID             string `json:"uid,omitempty" validate:"required"`
+	Password        string `json:"password,omitempty" validate:"required"`
+	PasswordConfirm string `json:"password_confirm,omitempty" validate:"required,eqfield=Password"`
+}
+
+func (rp ResetUserPassword) Validate() error { return core.Validate.Struct(rp) }
+
 type QueryFilter struct {
 	Search      string    `query:"search"`
 	Roles       []string  `query:"role"`
