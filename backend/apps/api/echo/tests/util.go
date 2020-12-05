@@ -1,4 +1,4 @@
-package handlers
+package tests
 
 import (
 	"bytes"
@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
+	. "github.com/trezcool/masomo/backend/apps/api/echo"
 	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/backend/services/email/dummy"
+	"github.com/trezcool/masomo/backend/storage/database/dummy"
 )
 
 var (
@@ -27,8 +27,36 @@ var (
 	jwtRefreshExpirationDelta = 4 * time.Hour
 	passwordResetTimeoutDelta = 3 * 24 * time.Hour
 
+	usrRepo user.Repository
+
 	errMissingToken = httpErr{Error: "missing or malformed jwt"}
 )
+
+func setup(t *testing.T) Server {
+	// set up DB
+	db, err := dummydb.Open()
+	if err != nil {
+		t.Fatalf("setup() failed: %v", err)
+	}
+	usrRepo = dummydb.NewUserRepository(db)
+
+	// set up services
+	mailSvc := dummymail.NewServiceMock(appName, defaultFromEmail)
+	usrSvc := user.NewServiceMock(usrRepo, mailSvc, secretKey, passwordResetTimeoutDelta)
+
+	// set up server
+	app := NewServer(
+		&Options{
+			Debug:                     false,
+			AppName:                   appName,
+			SecretKey:                 secretKey,
+			JwtExpirationDelta:        jwtExpirationDelta,
+			JwtRefreshExpirationDelta: jwtRefreshExpirationDelta,
+			UserSvc:                   usrSvc,
+		},
+	)
+	return app
+}
 
 type httpErr struct {
 	Error string `json:"error"`
@@ -63,18 +91,9 @@ func newRequest(method, path string, data ...[]byte) (*http.Request, *httptest.R
 	return newAuthRequest(method, path, "", data...)
 }
 
-func initApp() (*echo.Echo, *echo.Group, echo.MiddlewareFunc) {
-	app := echo.New()
-	app.Pre(middleware.RemoveTrailingSlash())
-	app.HTTPErrorHandler = helpers.AppHTTPErrorHandler
-	v1 := app.Group("/v1")
-	jwt := helpers.ConfigureAuth(appName, secretKey, jwtExpirationDelta, jwtRefreshExpirationDelta)
-	return app, v1, jwt
-}
-
 func getToken(t *testing.T, usr user.User) string {
-	claims := helpers.GetUserClaims(usr)
-	token, err := helpers.GenerateToken(claims)
+	claims := GetUserClaims(usr)
+	token, err := GenerateToken(claims)
 	if err != nil {
 		t.Fatalf("getToken() failed: %v", err)
 	}

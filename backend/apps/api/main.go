@@ -22,7 +22,7 @@ import (
 // - Serve static files | Web Server ? (for mailers)
 func main() {
 	// todo: load from config
-	debug := false
+	debug := true
 	appName := "Masomo"
 	secretKey := []byte("secret")
 	serverName := "localhost" // default
@@ -55,8 +55,8 @@ func main() {
 
 	// start API server
 	app := echoapi.NewServer(
-		":8000",
 		&echoapi.Options{
+			Address:                   ":8000",
 			Debug:                     debug,
 			AppName:                   appName,
 			SecretKey:                 secretKey,

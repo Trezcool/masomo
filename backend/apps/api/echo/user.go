@@ -1,4 +1,4 @@
-package handlers
+package echoapi
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
 	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
 )
@@ -19,11 +18,11 @@ var (
 )
 
 type userApi struct {
-	service user.Service
+	svc user.Service
 }
 
-func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
-	api := userApi{service: svc}
+func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
+	api := userApi{svc: svc}
 
 	ug := g.Group("/users")
 
@@ -38,16 +37,16 @@ func RegisterUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
 	// authed endpoints
 	ag := ug.Group("", jwt)
 	ag.POST("/token-refresh", api.userRefreshToken)
-	ag.POST("/register", api.userCreate, helpers.AdminMiddleware())
-	ag.GET("", api.userQuery, helpers.AdminMiddleware())
-	ag.DELETE("", api.userDestroyMultiple, helpers.AdminMiddleware())
-	ag.GET("/roles", api.userQueryRoles, helpers.AdminMiddleware())
+	ag.POST("/register", api.userCreate, adminMiddleware())
+	ag.GET("", api.userQuery, adminMiddleware())
+	ag.DELETE("", api.userDestroyMultiple, adminMiddleware())
+	ag.GET("/roles", api.userQueryRoles, adminMiddleware())
 
 	// detail endpoints
-	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(api.service))
+	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(api.svc))
 	dg.GET("", api.userRetrieve)
 	dg.PUT("", api.userUpdate)
-	dg.DELETE("", api.userDestroy, helpers.AdminMiddleware())
+	dg.DELETE("", api.userDestroy, adminMiddleware())
 }
 
 // Handlers
@@ -57,12 +56,12 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 	if err := ctx.Bind(&data); err != nil {
 		return err
 	}
-	if err := data.Validate(api.service); err != nil {
+	if err := data.Validate(api.svc); err != nil {
 		return err
 	}
 
 	// ctxUser cannot set a role > their own max role
-	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
-	usr, err := api.service.Create(data)
+	usr, err := api.svc.Create(data)
 	if err != nil {
 		return err
 	}
@@ -87,11 +86,11 @@ func (api *userApi) userLogin(ctx echo.Context) error {
 		return err
 	}
 
-	claims, err := helpers.Authenticate(data.Username, data.Password, api.service)
+	claims, err := authenticate(data.Username, data.Password, api.svc)
 	if err != nil {
 		return err
 	}
-	token, err := helpers.GenerateToken(claims)
+	token, err := GenerateToken(claims)
 	if err != nil {
 		return err
 	}
@@ -108,7 +107,7 @@ func (api *userApi) userResetPassword(ctx echo.Context) error {
 		return err
 	}
 
-	if err := api.service.RequestPasswordReset(data.Email); !(err == nil || err == user.ErrNotFound) {
+	if err := api.svc.RequestPasswordReset(data.Email); !(err == nil || err == user.ErrNotFound) {
 		// do not return errors to attackers
 		ctx.Logger().Error(err)
 	}
@@ -127,7 +126,7 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 		return err
 	}
 
-	if err := api.service.ResetPassword(data); err != nil {
+	if err := api.svc.ResetPassword(data); err != nil {
 		return err
 	}
 	return ctx.JSON(http.StatusOK, SuccessResponse{Success: "Password has been reset with the new password."})
@@ -141,7 +140,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 	query.Clean()
 
 	if query.IsEmpty() {
-		users, err := api.service.QueryAll()
+		users, err := api.svc.QueryAll()
 		if err != nil {
 			return err
 		}
@@ -151,7 +150,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 		return ctx.JSON(http.StatusOK, users)
 	}
 
-	users, err := api.service.Filter(query)
+	users, err := api.svc.Filter(query)
 	if err != nil {
 		return err
 	}
@@ -180,24 +179,24 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		return err
 	}
 
-	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
 		return err
 	}
 	if !ctxUsr.IsAdmin() {
 		// user cannot edit other users
 		if usr.ID != ctxUsr.ID {
-			return helpers.ErrHttpForbidden
+			return errHttpForbidden
 		}
 
 		// `IsActive` and `Roles` can only be changed by admin
 		// `Username` and `Email` can only be changed by admin for now
 		if data.IsActive != nil || data.Roles != nil || data.Username != "" || data.Email != "" {
-			return helpers.ErrHttpForbidden
+			return errHttpForbidden
 		}
 	}
 
-	if err := data.Validate(usr, api.service); err != nil {
+	if err := data.Validate(usr, api.svc); err != nil {
 		return err
 	}
 
@@ -206,7 +205,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
 	}
 
-	usr, err = api.service.Update(usr.ID, data)
+	usr, err = api.svc.Update(usr.ID, data)
 	if err != nil {
 		return err
 	}
@@ -221,15 +220,15 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
-	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
 		return err
 	}
 	if usr.ID == ctxUsr.ID {
-		return helpers.ErrHttpForbidden
+		return errHttpForbidden
 	}
 
-	if err := api.service.Delete(usr.ID); err != nil {
+	if err := api.svc.Delete(usr.ID); err != nil {
 		return err
 	}
 	return ctx.NoContent(http.StatusNoContent)
@@ -245,18 +244,18 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
-	ctxUsr, err := helpers.GetContextUser(ctx, api.service)
+	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
 		return err
 	}
 	sort.Ints(query.IDs)
 	if i := sort.SearchInts(query.IDs, ctxUsr.ID); i < len(query.IDs) {
 		if match := query.IDs[i]; ctxUsr.ID == match {
-			return helpers.ErrHttpForbidden
+			return errHttpForbidden
 		}
 	}
 
-	if err := api.service.Delete(query.IDs...); err != nil {
+	if err := api.svc.Delete(query.IDs...); err != nil {
 		return err
 	}
 	return ctx.NoContent(http.StatusNoContent)
@@ -267,7 +266,7 @@ func (api *userApi) userQueryRoles(ctx echo.Context) error {
 }
 
 func (api *userApi) userRefreshToken(ctx echo.Context) error {
-	token, err := helpers.RefreshToken(ctx, api.service)
+	token, err := refreshToken(ctx, api.svc)
 	if err != nil {
 		return err
 	}
@@ -278,7 +277,7 @@ func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
 			if id, err := strconv.Atoi(ctx.Param("id")); err == nil {
-				ctxUsr, err := helpers.GetContextUser(ctx, svc)
+				ctxUsr, err := getContextUser(ctx, svc)
 				if err != nil {
 					return err
 				}
@@ -293,7 +292,7 @@ func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
 					}
 				}
 			}
-			return helpers.ErrHttpNotFound
+			return errHttpNotFound
 		}
 	}
 }

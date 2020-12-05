@@ -1,4 +1,4 @@
-package handlers
+package tests
 
 import (
 	"bytes"
@@ -13,30 +13,15 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
+	"github.com/trezcool/masomo/backend/apps/api/echo"
 	"github.com/trezcool/masomo/backend/core/user"
 	"github.com/trezcool/masomo/backend/services/email/dummy"
-	"github.com/trezcool/masomo/backend/storage/database/dummy"
 	"github.com/trezcool/masomo/backend/tests"
 )
 
-func setup(t *testing.T) (*echo.Echo, user.Repository) {
-	db, err := dummydb.Open()
-	if err != nil {
-		t.Fatalf("setup() failed: %v", err)
-	}
-	repo := dummydb.NewUserRepository(db)
-	mailSvc := dummymail.NewServiceMock(appName, defaultFromEmail)
-	svc := user.NewServiceMock(repo, mailSvc, secretKey, passwordResetTimeoutDelta)
-	app, v1, jwtMid := initApp()
-	RegisterUserAPI(v1, jwtMid, svc)
-	return app, repo
-}
-
 func Test_userApi_userQuery(t *testing.T) {
-	app, repo := setup(t)
+	app := setup(t)
 
 	path := func(search string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
 		v := make(url.Values)
@@ -66,13 +51,13 @@ func Test_userApi_userQuery(t *testing.T) {
 	t4 := now.Add(4 * time.Hour)
 	t5 := now.Add(5 * time.Hour)
 
-	usr1 := testutil.CreateUser(t, repo, "User", "awe", "awe@test.cd", "", nil, true, t1)
-	usr2 := testutil.CreateUser(t, repo, "King", "user02", "king@test.cd", "", nil, true)
-	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
-	admin := testutil.CreateUser(t, repo, "Admin", "admin", "admin@test.cd", "", []string{user.RoleAdmin}, true, t2.Truncate(time.Second))
-	principal := testutil.CreateUser(t, repo, "Principal", "princip", "princip@test.cd", "", []string{user.RoleAdminPrincipal}, true)
-	teacher := testutil.CreateUser(t, repo, "Teacher", "teacher", "teacher@test.cd", "", []string{user.RoleTeacher}, true, t3)
-	naughty := testutil.CreateUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
+	usr1 := testutil.CreateUser(t, usrRepo, "User", "awe", "awe@test.cd", "", nil, true, t1)
+	usr2 := testutil.CreateUser(t, usrRepo, "King", "user02", "king@test.cd", "", nil, true)
+	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	admin := testutil.CreateUser(t, usrRepo, "Admin", "admin", "admin@test.cd", "", []string{user.RoleAdmin}, true, t2.Truncate(time.Second))
+	principal := testutil.CreateUser(t, usrRepo, "Principal", "princip", "princip@test.cd", "", []string{user.RoleAdminPrincipal}, true)
+	teacher := testutil.CreateUser(t, usrRepo, "Teacher", "teacher", "teacher@test.cd", "", []string{user.RoleTeacher}, true, t3)
+	naughty := testutil.CreateUser(t, usrRepo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
 
 	adminToken := getToken(t, admin)
 	empty := marchallList(t)
@@ -139,20 +124,19 @@ func Test_userApi_userQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
 			app.ServeHTTP(rec, req)
-			defer app.Close()
 			checkCodeAndData(t, tt, rec)
 		})
 	}
 }
 
 func Test_userApi_userRefreshToken(t *testing.T) {
-	app, repo := setup(t)
+	app := setup(t)
 
-	naughty := testutil.CreateUser(t, repo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
-	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	naughty := testutil.CreateUser(t, usrRepo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
+	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 
 	now := time.Now()
-	unrefreshableClaims := &helpers.Claims{
+	unrefreshableClaims := &echoapi.Claims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    "Masomo",
 			Subject:   strconv.Itoa(student.ID),
@@ -166,7 +150,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 		IsAdmin:          student.IsAdmin(),
 		Roles:            student.Roles,
 	}
-	unrefreshableToken, err := helpers.GenerateToken(unrefreshableClaims)
+	unrefreshableToken, err := echoapi.GenerateToken(unrefreshableClaims)
 	if err != nil {
 		t.Fatalf("GenerateToken() failed: %v", err)
 	}
@@ -184,14 +168,13 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
 			app.ServeHTTP(rec, req)
-			defer app.Close()
 
 			// cannot guess new token.. just check that it's not empty
 			if tt.wantCode == http.StatusOK {
 				if rec.Code != tt.wantCode {
 					t.Errorf("failed! code = %v; wantCode %v", rec.Code, tt.wantCode)
 				}
-				var respData LoginResponse
+				var respData echoapi.LoginResponse
 				if err := json.Unmarshal(rec.Body.Bytes(), &respData); err != nil {
 					t.Errorf("json.Unmarshal() failed! err %v", err)
 				}
@@ -206,10 +189,10 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 }
 
 func Test_userApi_userResetPassword(t *testing.T) {
-	app, repo := setup(t)
+	app := setup(t)
 
-	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
-	successData := marchallObj(t, SuccessResponse{Success: "If the email address supplied is associated with an active account on this system, " +
+	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
+	successData := marchallObj(t, echoapi.SuccessResponse{Success: "If the email address supplied is associated with an active account on this system, " +
 		"an email will arrive in your inbox shortly with instructions to reset your password."})
 
 	pathRegex, err := regexp.Compile("/password-reset/.+/.+")
@@ -222,17 +205,17 @@ func Test_userApi_userResetPassword(t *testing.T) {
 		to        mail.Address
 	}
 	tests := []httpTest{
-		{name: "required fields", wantCode: http.StatusBadRequest, wantData: marchallObj(t, PasswordResetRequest{Email: "this field is required"})},
+		{name: "required fields", wantCode: http.StatusBadRequest, wantData: marchallObj(t, echoapi.PasswordResetRequest{Email: "this field is required"})},
 		{
-			name: "invalid email", wantCode: http.StatusBadRequest, body: marchallObj(t, PasswordResetRequest{Email: "lol"}),
-			wantData: marchallObj(t, PasswordResetRequest{Email: "email must be a valid email address"}),
+			name: "invalid email", wantCode: http.StatusBadRequest, body: marchallObj(t, echoapi.PasswordResetRequest{Email: "lol"}),
+			wantData: marchallObj(t, echoapi.PasswordResetRequest{Email: "email must be a valid email address"}),
 		},
 		{
-			name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: "lol@test.com"}),
+			name: "unknown email", wantCode: http.StatusOK, body: marchallObj(t, echoapi.PasswordResetRequest{Email: "lol@test.com"}),
 			wantData: successData, extra: extraTest{emailSent: false},
 		},
 		{
-			name: "know email", wantCode: http.StatusOK, body: marchallObj(t, PasswordResetRequest{Email: student.Email}),
+			name: "know email", wantCode: http.StatusOK, body: marchallObj(t, echoapi.PasswordResetRequest{Email: student.Email}),
 			wantData: successData, extra: extraTest{emailSent: true, to: mail.Address{Name: student.Name, Address: student.Email}},
 		},
 	}
@@ -245,7 +228,6 @@ func Test_userApi_userResetPassword(t *testing.T) {
 
 			req, rec := newRequest(tt.method, tt.path, tt.body)
 			app.ServeHTTP(rec, req)
-			defer app.Close()
 			checkCodeAndData(t, tt, rec)
 
 			if extra, ok := tt.extra.(extraTest); ok {
@@ -280,9 +262,9 @@ func Test_userApi_userResetPassword(t *testing.T) {
 }
 
 func Test_userApi_userConfirmPasswordReset(t *testing.T) {
-	app, repo := setup(t)
+	app := setup(t)
 
-	student := testutil.CreateUser(t, repo, "Hero", "hero", "user3@test.cd", "lol", []string{user.RoleStudent}, true)
+	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "lol", []string{user.RoleStudent}, true)
 	validUID := user.EncodeUID(student)
 	validToken, err := user.MakeToken(student)
 	if err != nil {
@@ -357,7 +339,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 		{
 			name: "valid token", wantCode: http.StatusOK,
 			body:     marchallObj(t, user.ResetUserPassword{Token: validToken, UID: validUID, Password: "LolC@t123", PasswordConfirm: "LolC@t123"}),
-			wantData: marchallObj(t, SuccessResponse{Success: "Password has been reset with the new password."}),
+			wantData: marchallObj(t, echoapi.SuccessResponse{Success: "Password has been reset with the new password."}),
 		},
 	}
 	for _, tt := range tests {
@@ -367,11 +349,10 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newRequest(tt.method, tt.path, tt.body)
 			app.ServeHTTP(rec, req)
-			defer app.Close()
 			checkCodeAndData(t, tt, rec)
 
 			if tt.wantCode == http.StatusOK {
-				refreshedStudent, err := repo.GetUserByID(student.ID)
+				refreshedStudent, err := usrRepo.GetUserByID(student.ID)
 				if err != nil {
 					t.Fatalf("GetUserByID() failed, %v", err)
 				}

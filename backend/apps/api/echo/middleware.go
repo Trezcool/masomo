@@ -1,8 +1,8 @@
-package helpers
+package echoapi
 
 import "github.com/labstack/echo/v4"
 
-func AdminMiddleware(roles ...string) echo.MiddlewareFunc {
+func adminMiddleware(roles ...string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
 			claims, err := getContextClaims(ctx)
@@ -12,7 +12,7 @@ func AdminMiddleware(roles ...string) echo.MiddlewareFunc {
 			if claims.IsAdmin && contextHasAnyRole(ctx, roles) {
 				return next(ctx)
 			}
-			return ErrHttpForbidden
+			return errHttpForbidden
 		}
 	}
 }

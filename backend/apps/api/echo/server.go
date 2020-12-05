@@ -1,6 +1,7 @@
 package echoapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -8,30 +9,37 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo/handlers"
-	"github.com/trezcool/masomo/backend/apps/api/echo/helpers"
 	"github.com/trezcool/masomo/backend/core/user"
 )
 
-type Options struct {
-	Debug                     bool
-	AppName                   string
-	SecretKey                 []byte
-	JwtExpirationDelta        time.Duration
-	JwtRefreshExpirationDelta time.Duration
+type (
+	Options struct {
+		Address                   string
+		Debug                     bool
+		AppName                   string
+		SecretKey                 []byte
+		JwtExpirationDelta        time.Duration
+		JwtRefreshExpirationDelta time.Duration
 
-	UserSvc user.Service
-}
+		UserSvc user.Service
+	}
 
-type server struct {
-	addr string
-	opts *Options
-	app  *echo.Echo
-}
+	Server interface {
+		http.Handler
+		Start()
+		Stop(context.Context) error
+	}
 
-func NewServer(addr string, opts *Options) *server {
+	server struct {
+		opts *Options
+		app  *echo.Echo
+	}
+)
+
+var _ Server = (*server)(nil)
+
+func NewServer(opts *Options) Server {
 	s := &server{
-		addr: addr,
 		opts: opts,
 		app:  echo.New(),
 	}
@@ -42,28 +50,38 @@ func NewServer(addr string, opts *Options) *server {
 func (s *server) setup() {
 	s.app.Pre(middleware.RemoveTrailingSlash())
 	s.app.Use(middleware.Logger())
-	s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
+	if !s.opts.Debug {
+		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
+	}
 
-	s.app.HTTPErrorHandler = helpers.AppHTTPErrorHandler
+	s.app.HTTPErrorHandler = appHTTPErrorHandler
 	s.app.Debug = s.opts.Debug
 
 	s.app.GET("/", home)
 
 	v1 := s.app.Group("/v1")
-	jwt := helpers.ConfigureAuth(
+	jwt := configureAuth(
 		s.opts.AppName,
 		s.opts.SecretKey,
 		s.opts.JwtExpirationDelta,
 		s.opts.JwtRefreshExpirationDelta,
 	)
 
-	handlers.RegisterUserAPI(v1, jwt, s.opts.UserSvc)
+	registerUserAPI(v1, jwt, s.opts.UserSvc)
 
 	// TODO: swagger !!
 }
 
 func (s *server) Start() {
-	s.app.Logger.Fatal(s.app.Start(s.addr))
+	s.app.Logger.Fatal(s.app.Start(s.opts.Address))
+}
+
+func (s *server) Stop(ctx context.Context) error {
+	return s.app.Shutdown(ctx)
+}
+
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) { // for tests
+	s.app.ServeHTTP(w, r)
 }
 
 func home(ctx echo.Context) error {

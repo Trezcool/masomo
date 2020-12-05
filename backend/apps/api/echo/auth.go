@@ -1,4 +1,4 @@
-package helpers
+package echoapi
 
 import (
 	"sort"
@@ -17,24 +17,24 @@ var (
 	expirationDelta        time.Duration
 	refreshExpirationDelta time.Duration
 
-	// AppJWTConfig is the default JWT auth middleware config.
-	AppJWTConfig   middleware.JWTConfig
+	// appJWTConfig is the default JWT auth middleware config.
+	appJWTConfig   middleware.JWTConfig
 	contextKey     = "userToken"
 	contextUserKey = "user"
 )
 
-func ConfigureAuth(appName string, secretKey []byte, expDelta, refreshExpDelta time.Duration) echo.MiddlewareFunc {
+func configureAuth(appName string, secretKey []byte, expDelta, refreshExpDelta time.Duration) echo.MiddlewareFunc {
 	applicationName = appName
 	expirationDelta = expDelta
 	refreshExpirationDelta = refreshExpDelta
 
-	AppJWTConfig = middleware.JWTConfig{
+	appJWTConfig = middleware.JWTConfig{
 		SigningKey:    secretKey,
 		SigningMethod: middleware.AlgorithmHS256,
 		ContextKey:    contextKey,
 		Claims:        new(Claims),
 	}
-	return middleware.JWTWithConfig(AppJWTConfig)
+	return middleware.JWTWithConfig(appJWTConfig)
 }
 
 // Claims represents the authorization claims transmitted via a JWT.
@@ -75,7 +75,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 	return claims
 }
 
-func Authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
+func authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
 	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
 		if err := usr.CheckPassword(pwd); err == nil {
 			if !usr.IsActive {
@@ -93,10 +93,10 @@ func Authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
 
 // GenerateToken generates a signed JWT token string representing the user Claims.
 func GenerateToken(claims *Claims) (string, error) {
-	method := jwt.GetSigningMethod(AppJWTConfig.SigningMethod)
+	method := jwt.GetSigningMethod(appJWTConfig.SigningMethod)
 	token := jwt.NewWithClaims(method, claims)
 
-	ss, err := token.SignedString(AppJWTConfig.SigningKey)
+	ss, err := token.SignedString(appJWTConfig.SigningKey)
 	if err != nil {
 		return "", errTokenSigningFailed // todo: wrap err
 	}
@@ -104,7 +104,7 @@ func GenerateToken(claims *Claims) (string, error) {
 }
 
 func getContextClaims(ctx echo.Context) (Claims, error) {
-	if token, ok := ctx.Get(AppJWTConfig.ContextKey).(*jwt.Token); ok {
+	if token, ok := ctx.Get(appJWTConfig.ContextKey).(*jwt.Token); ok {
 		if claims, ok := token.Claims.(*Claims); ok {
 			return *claims, nil
 		}
@@ -112,7 +112,7 @@ func getContextClaims(ctx echo.Context) (Claims, error) {
 	return Claims{}, errUnauthorized
 }
 
-func GetContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.User, error) {
+func getContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.User, error) {
 	if usr, ok := ctx.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
@@ -158,13 +158,13 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	return false
 }
 
-func RefreshToken(ctx echo.Context, svc user.Service) (string, error) {
+func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	claims, err := getContextClaims(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	usr, err := GetContextUser(ctx, svc, claims)
+	usr, err := getContextUser(ctx, svc, claims)
 	if err != nil {
 		return "", err
 	}

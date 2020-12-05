@@ -1,4 +1,4 @@
-package helpers
+package echoapi
 
 import (
 	"errors"
@@ -16,12 +16,12 @@ var (
 	errAuthenticationFailed = echo.NewHTTPError(http.StatusBadRequest, "authentication failed")
 	errAccountDeactivated   = echo.NewHTTPError(http.StatusForbidden, "account deactivated")
 	errRefreshExpired       = echo.NewHTTPError(http.StatusForbidden, "refresh has expired")
-	ErrHttpForbidden        = echo.NewHTTPError(http.StatusForbidden, "permission denied")
-	ErrHttpNotFound         = echo.NewHTTPError(http.StatusNotFound, "not found")
+	errHttpForbidden        = echo.NewHTTPError(http.StatusForbidden, "permission denied")
+	errHttpNotFound         = echo.NewHTTPError(http.StatusNotFound, "not found")
 	errTokenSigningFailed   = errors.New("failed to sign token")
 )
 
-func AppHTTPErrorHandler(err error, c echo.Context) {
+func appHTTPErrorHandler(err error, c echo.Context) {
 	var code int
 	var message interface{}
 
