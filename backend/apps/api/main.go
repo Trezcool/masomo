@@ -2,12 +2,12 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo"
-	_ "github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
 	"github.com/trezcool/masomo/backend/services/email/dummy"
+	"github.com/trezcool/masomo/backend/services/email/sendgrid"
 	"github.com/trezcool/masomo/backend/storage/database/dummy"
 )
 
@@ -21,27 +21,22 @@ import (
 // - CSRF !!!
 // - Serve static files | Web Server ? (for mailers)
 func main() {
-	// todo: load from config
-	debug := true
-	appName := "Masomo"
-	secretKey := []byte("secret")
-	serverName := "localhost" // default
-	defaultFromEmail := "noreply@" + serverName
-	//sendgridApiKey := "${SENDGRID_API_KEY}"
-	jwtExpirationDelta := 10 * time.Minute // todo: dev - 7 days
-	jwtRefreshExpirationDelta := 4 * time.Hour
-	passwordResetTimeoutDelta := 3 * 24 * time.Hour
+	debug := core.Conf.GetBool("debug")
 
 	// set up DB
 	db, err := dummydb.Open()
 	errAndDie(err)
 
 	// set up mail service
-	//mailSvc := sendgridmail.NewService(sendgridApiKey, appName, defaultFromEmail)
-	mailSvc := dummymail.NewService(appName, defaultFromEmail) // todo: only during dev (config)
+	var mailSvc core.EmailService
+	if debug {
+		mailSvc = dummymail.NewService()
+	} else {
+		mailSvc = sendgridmail.NewService()
+	}
 
 	// set up services
-	usrSvc := user.NewService(dummydb.NewUserRepository(db), mailSvc, secretKey, passwordResetTimeoutDelta)
+	usrSvc := user.NewService(dummydb.NewUserRepository(db), mailSvc)
 
 	// TODO: move to script | SQL data migration (dev only?)
 	root := user.NewUser{
@@ -56,13 +51,8 @@ func main() {
 	// start API server
 	app := echoapi.NewServer(
 		&echoapi.Options{
-			Address:                   ":8000",
-			Debug:                     debug,
-			AppName:                   appName,
-			SecretKey:                 secretKey,
-			JwtExpirationDelta:        jwtExpirationDelta,
-			JwtRefreshExpirationDelta: jwtRefreshExpirationDelta,
-			UserSvc:                   usrSvc,
+			Address: ":8000",
+			UserSvc: usrSvc,
 		},
 	)
 	app.Start()

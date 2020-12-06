@@ -15,6 +15,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"github.com/trezcool/masomo/backend/apps/api/echo"
+	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
 	"github.com/trezcool/masomo/backend/services/email/dummy"
 	"github.com/trezcool/masomo/backend/tests"
@@ -136,15 +137,17 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 
 	now := time.Now()
+	expirationDelta := core.Conf.GetDuration("jwtExpirationDelta")
+	refreshExpirationDelta := core.Conf.GetDuration("jwtRefreshExpirationDelta")
 	unrefreshableClaims := &echoapi.Claims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    "Masomo",
 			Subject:   strconv.Itoa(student.ID),
 			Audience:  "Academia",
-			ExpiresAt: now.Add(jwtExpirationDelta).Unix(),
+			ExpiresAt: now.Add(expirationDelta).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OriginalIssuedAt: now.Add(-2 * jwtRefreshExpirationDelta).Unix(), // older than threshold
+		OriginalIssuedAt: now.Add(-2 * refreshExpirationDelta).Unix(), // older than threshold
 		IsStudent:        student.IsStudent(),
 		IsTeacher:        student.IsTeacher(),
 		IsAdmin:          student.IsAdmin(),
@@ -272,6 +275,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	}
 
 	// generate an expired token
+	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
 	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
 	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := user.MakeToken(student)

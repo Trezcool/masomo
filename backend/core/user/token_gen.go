@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/trezcool/masomo/backend/core"
 )
 
 var (
@@ -78,6 +80,7 @@ func verifyToken(usr User, token string) error {
 	}
 
 	// check that the timestamp is within limit
+	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
 	if (_numDaysSince2001(time.Now()) - ts) > int(passwordResetTimeoutDelta/(24*time.Hour)) {
 		return errTokenExpired
 	}
@@ -99,6 +102,7 @@ func _numDaysSince2001(t time.Time) int {
 }
 
 func _sign(val []byte) (string, error) {
+	secretKey := core.Conf.GetString("secretKey")
 	key := sha256.Sum256(append(salt, secretKey...))
 	h := hmac.New(sha256.New, key[:])
 	_, err := h.Write(val)

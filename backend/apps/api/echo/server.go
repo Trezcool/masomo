@@ -3,26 +3,20 @@ package echoapi
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
+	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
 )
 
 type (
 	Options struct {
-		Address                   string
-		Debug                     bool
-		DisableReqLogs            bool
-		AppName                   string
-		SecretKey                 []byte
-		JwtExpirationDelta        time.Duration
-		JwtRefreshExpirationDelta time.Duration
-
-		UserSvc user.Service
+		Address        string
+		DisableReqLogs bool
+		UserSvc        user.Service
 	}
 
 	Server interface {
@@ -49,26 +43,24 @@ func NewServer(opts *Options) Server {
 }
 
 func (s *server) setup() {
+	debug := core.Conf.GetBool("debug")
+
 	s.app.Pre(middleware.RemoveTrailingSlash())
 	if !s.opts.DisableReqLogs {
 		s.app.Use(middleware.Logger())
 	}
-	if !s.opts.Debug {
+	// do not recover in DEV|TEST mode
+	if !(debug || core.Conf.GetBool("testMode")) {
 		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 	}
 
 	s.app.HTTPErrorHandler = appHTTPErrorHandler
-	s.app.Debug = s.opts.Debug
+	s.app.Debug = debug
 
 	s.app.GET("/", home)
 
 	v1 := s.app.Group("/v1")
-	jwt := configureAuth(
-		s.opts.AppName,
-		s.opts.SecretKey,
-		s.opts.JwtExpirationDelta,
-		s.opts.JwtRefreshExpirationDelta,
-	)
+	jwt := middleware.JWTWithConfig(appJWTConfig)
 
 	registerUserAPI(v1, jwt, s.opts.UserSvc)
 

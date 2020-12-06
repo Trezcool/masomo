@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"testing"
-	"time"
 
 	"github.com/trezcool/masomo/backend/core/user"
 	"github.com/trezcool/masomo/backend/services/email/dummy"
@@ -11,16 +10,7 @@ import (
 	"github.com/trezcool/masomo/backend/tests"
 )
 
-var (
-	// todo: load from test config
-	appName                   = "Masomo"
-	secretKey                 = []byte("secret")
-	serverName                = "localhost"
-	defaultFromEmail          = "noreply@" + serverName
-	passwordResetTimeoutDelta = 3 * 24 * time.Hour
-
-	usrRepo user.Repository
-)
+var usrRepo user.Repository
 
 func setup(t *testing.T) *commandLine {
 	// set up DB
@@ -31,8 +21,8 @@ func setup(t *testing.T) *commandLine {
 	usrRepo = dummydb.NewUserRepository(db)
 
 	// set up services
-	mailSvc := dummymail.NewServiceMock(appName, defaultFromEmail)
-	usrSvc := user.NewServiceMock(usrRepo, mailSvc, secretKey, passwordResetTimeoutDelta)
+	mailSvc := dummymail.NewServiceMock()
+	usrSvc := user.NewServiceMock(usrRepo, mailSvc)
 
 	// start CLI
 	cli := &commandLine{

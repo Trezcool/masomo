@@ -12,9 +12,6 @@ import (
 )
 
 var (
-	secretKey                 []byte
-	passwordResetTimeoutDelta time.Duration
-
 	// errors
 	ErrNotFound       = errors.New("user not found")
 	ErrEmailExists    = errors.New("a user with this email already exists")
@@ -65,9 +62,7 @@ type (
 
 var _ Service = (*service)(nil)
 
-func NewService(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) Service {
-	secretKey = secret
-	passwordResetTimeoutDelta = pwdResetTimeout
+func NewService(repo Repository, mailSvc core.EmailService) Service {
 	return &service{
 		repo:    repo,
 		mailSvc: mailSvc,

@@ -4,6 +4,10 @@
 # Mac
 .DS_Store
 
+# .env
+**/.env.*
+!**/.env.test
+
 # editor files
 .idea/
 *.iml

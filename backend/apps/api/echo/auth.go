@@ -9,33 +9,20 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/trezcool/masomo/backend/core"
 	"github.com/trezcool/masomo/backend/core/user"
 )
 
 var (
-	applicationName        string
-	expirationDelta        time.Duration
-	refreshExpirationDelta time.Duration
-
 	// appJWTConfig is the default JWT auth middleware config.
-	appJWTConfig   middleware.JWTConfig
-	contextKey     = "userToken"
-	contextUserKey = "user"
-)
-
-func configureAuth(appName string, secretKey []byte, expDelta, refreshExpDelta time.Duration) echo.MiddlewareFunc {
-	applicationName = appName
-	expirationDelta = expDelta
-	refreshExpirationDelta = refreshExpDelta
-
 	appJWTConfig = middleware.JWTConfig{
-		SigningKey:    secretKey,
+		SigningKey:    []byte(core.Conf.GetString("secretKey")),
 		SigningMethod: middleware.AlgorithmHS256,
-		ContextKey:    contextKey,
+		ContextKey:    "userToken",
 		Claims:        new(Claims),
 	}
-	return middleware.JWTWithConfig(appJWTConfig)
-}
+	contextUserKey = "user"
+)
 
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
@@ -48,6 +35,9 @@ type Claims struct {
 }
 
 func GetUserClaims(usr user.User, origIat ...int64) *Claims {
+	appName := core.Conf.GetString("appName")
+	expirationDelta := core.Conf.GetDuration("jwtExpirationDelta")
+
 	now := time.Now()
 	nownix := now.Unix()
 
@@ -60,7 +50,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 
 	claims := &Claims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer:    applicationName,
+			Issuer:    appName,
 			Subject:   strconv.Itoa(usr.ID),
 			Audience:  "Academia",
 			ExpiresAt: now.Add(expirationDelta).Unix(),
@@ -175,6 +165,7 @@ func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	}
 
 	// check if refresh has not expired
+	refreshExpirationDelta := core.Conf.GetDuration("jwtRefreshExpirationDelta")
 	expTime := time.Unix(claims.OriginalIssuedAt, 0).Add(refreshExpirationDelta)
 	if time.Now().After(expTime) {
 		return "", errRefreshExpired

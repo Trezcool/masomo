@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -18,15 +17,6 @@ import (
 )
 
 var (
-	// todo: load from test config
-	appName                   = "Masomo"
-	secretKey                 = []byte("secret")
-	serverName                = "localhost"
-	defaultFromEmail          = "noreply@" + serverName
-	jwtExpirationDelta        = 10 * time.Minute
-	jwtRefreshExpirationDelta = 4 * time.Hour
-	passwordResetTimeoutDelta = 3 * 24 * time.Hour
-
 	usrRepo user.Repository
 
 	errMissingToken = httpErr{Error: "missing or malformed jwt"}
@@ -41,19 +31,14 @@ func setup(t *testing.T) Server {
 	usrRepo = dummydb.NewUserRepository(db)
 
 	// set up services
-	mailSvc := dummymail.NewServiceMock(appName, defaultFromEmail)
-	usrSvc := user.NewServiceMock(usrRepo, mailSvc, secretKey, passwordResetTimeoutDelta)
+	mailSvc := dummymail.NewServiceMock()
+	usrSvc := user.NewServiceMock(usrRepo, mailSvc)
 
 	// set up server
 	app := NewServer(
 		&Options{
-			Debug:                     false,
-			DisableReqLogs:            true,
-			AppName:                   appName,
-			SecretKey:                 secretKey,
-			JwtExpirationDelta:        jwtExpirationDelta,
-			JwtRefreshExpirationDelta: jwtRefreshExpirationDelta,
-			UserSvc:                   usrSvc,
+			DisableReqLogs: true,
+			UserSvc:        usrSvc,
 		},
 	)
 	return app

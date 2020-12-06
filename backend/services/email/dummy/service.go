@@ -26,7 +26,10 @@ type service struct {
 
 var _ core.EmailService = (*service)(nil)
 
-func NewService(appName, defaultFromEmail string) core.EmailService {
+func NewService() core.EmailService {
+	appName := core.Conf.GetString("appName")
+	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
+
 	return &service{
 		defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
 		subjPrefix:       "[" + appName + "] ",
@@ -129,7 +132,10 @@ type serviceMock struct {
 	service
 }
 
-func NewServiceMock(appName, defaultFromEmail string) core.EmailService {
+func NewServiceMock() core.EmailService {
+	appName := core.Conf.GetString("appName")
+	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
+
 	return &serviceMock{
 		service: service{
 			defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},

@@ -24,10 +24,14 @@ type service struct {
 
 var _ core.EmailService = (*service)(nil)
 
-func NewService(key, appName, fromEmail string) core.EmailService {
+func NewService() core.EmailService {
+	key := core.Conf.GetString("sendgridApiKey")
+	appName := core.Conf.GetString("appName")
+	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
+
 	return &service{
 		key:        key,
-		from:       sgmail.NewEmail(appName, fromEmail),
+		from:       sgmail.NewEmail(appName, defaultFromEmail),
 		subjPrefix: "[" + appName + "] ",
 	}
 }

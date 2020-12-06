@@ -12,6 +12,9 @@ defaults:
   run:
     working-directory: backend
 
+env:
+  ENV: QA
+
 jobs:
   golint:
     name: Go Lint
@@ -44,6 +47,8 @@ jobs:
       run: go build -v -race ./...
 
     - name: Test
+      env:
+        ENV: TEST
       run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload test coverage

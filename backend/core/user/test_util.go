@@ -1,18 +1,12 @@
 package user
 
-import (
-	"time"
-
-	"github.com/trezcool/masomo/backend/core"
-)
+import "github.com/trezcool/masomo/backend/core"
 
 type serviceMock struct {
 	service
 }
 
-func NewServiceMock(repo Repository, mailSvc core.EmailService, secret []byte, pwdResetTimeout time.Duration) Service {
-	secretKey = secret
-	passwordResetTimeoutDelta = pwdResetTimeout
+func NewServiceMock(repo Repository, mailSvc core.EmailService) Service {
 	return &serviceMock{
 		service: service{
 			repo:    repo,

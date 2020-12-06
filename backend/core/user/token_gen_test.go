@@ -3,12 +3,11 @@ package user
 import (
 	"testing"
 	"time"
+
+	"github.com/trezcool/masomo/backend/core"
 )
 
 func TestMakeVerifyToken(t *testing.T) {
-	secretKey = []byte("secret")
-	passwordResetTimeoutDelta = 3 * 24 * time.Hour
-
 	now := time.Now()
 	usr := User{
 		ID:        1,
@@ -28,6 +27,7 @@ func TestMakeVerifyToken(t *testing.T) {
 	}
 
 	// generate an expired token
+	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
 	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
 	NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := MakeToken(usr)
