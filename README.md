@@ -5,3 +5,4 @@
 ![Go Version](https://img.shields.io/badge/go%20version-v1.15-61CFDD.svg?style=flat)
 ![Vue Version](https://img.shields.io/badge/vue%20version-v3.0-42b983.svg?style=flat)
 ![Vue Version](https://img.shields.io/badge/flutter%20version-v1.22-075b9a.svg?style=flat)
+![Vue Version](https://img.shields.io/badge/tauri%20version-v0.9-ff8e13.svg?style=flat)
