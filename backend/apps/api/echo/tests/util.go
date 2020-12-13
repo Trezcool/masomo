@@ -90,6 +90,7 @@ func marchallObj(t *testing.T, obj interface{}) []byte {
 	return data
 }
 
+// nolint
 func marchallList(t *testing.T, objs ...interface{}) []byte {
 	data, err := json.Marshal(objs)
 	if err != nil {
