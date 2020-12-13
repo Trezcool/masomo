@@ -51,10 +51,15 @@ jobs:
       with:
         postgresql version: 13.1
         postgresql db: masomotest
+        postgresql user: masomotest
+        postgresql password: masomotest
 
     - name: Test
       env:
         ENV: TEST
+        TEST_DBNAME: masomotest
+        TEST_DBUSER: masomotest
+        TEST_DBPASSWORD: masomotest
       run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload test coverage
