@@ -2,21 +2,20 @@ package echoapi
 
 import (
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/trezcool/masomo/backend/core"
-	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/core/user"
 )
 
 var (
 	// appJWTConfig is the default JWT auth middleware config.
 	appJWTConfig = middleware.JWTConfig{
-		SigningKey:    []byte(core.Conf.GetString("secretKey")),
+		SigningKey:    []byte(core.Conf.SecretKey),
 		SigningMethod: middleware.AlgorithmHS256,
 		ContextKey:    "userToken",
 		Claims:        new(Claims),
@@ -27,17 +26,14 @@ var (
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
 	jwt.StandardClaims
-	OriginalIssuedAt int64    `json:"oriat,omitempty"`
-	IsStudent        bool     `json:"is_student,omitempty"` // -> STUDENT PORTAL
-	IsTeacher        bool     `json:"is_teacher,omitempty"` // -> TEACHER PORTAL
-	IsAdmin          bool     `json:"is_admin,omitempty"`   // -> ADMIN PORTAL
-	Roles            []string `json:"roles,omitempty"`
+	OrigIssuedAt int64    `json:"oriat,omitempty"`
+	IsStudent    bool     `json:"is_student,omitempty"` // -> STUDENT PORTAL
+	IsTeacher    bool     `json:"is_teacher,omitempty"` // -> TEACHER PORTAL
+	IsAdmin      bool     `json:"is_admin,omitempty"`   // -> ADMIN PORTAL
+	Roles        []string `json:"roles,omitempty"`
 }
 
 func GetUserClaims(usr user.User, origIat ...int64) *Claims {
-	appName := core.Conf.GetString("appName")
-	expirationDelta := core.Conf.GetDuration("jwtExpirationDelta")
-
 	now := time.Now()
 	nownix := now.Unix()
 
@@ -50,17 +46,17 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 
 	claims := &Claims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer:    appName,
-			Subject:   strconv.Itoa(usr.ID),
+			Issuer:    core.Conf.AppName,
+			Subject:   usr.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(expirationDelta).Unix(),
+			ExpiresAt: now.Add(core.Conf.JWTExpirationDelta).Unix(),
 			IssuedAt:  nownix,
 		},
-		OriginalIssuedAt: oriat,
-		IsStudent:        usr.IsStudent(),
-		IsTeacher:        usr.IsTeacher(),
-		IsAdmin:          usr.IsAdmin(),
-		Roles:            usr.Roles,
+		OrigIssuedAt: oriat,
+		IsStudent:    usr.IsStudent(),
+		IsTeacher:    usr.IsTeacher(),
+		IsAdmin:      usr.IsAdmin(),
+		Roles:        usr.Roles,
 	}
 	return claims
 }
@@ -68,7 +64,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 func authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
 	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
 		if err := usr.CheckPassword(pwd); err == nil {
-			if !usr.IsActive {
+			if usr.IsActive != nil && !*usr.IsActive {
 				return nil, errAccountDeactivated
 			}
 			usr, err := svc.SetLastLogin(usr)
@@ -118,12 +114,7 @@ func getContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.Us
 		}
 	}
 
-	uid, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		return user.User{}, err
-	}
-
-	usr, err := svc.GetByID(uid)
+	usr, err := svc.GetByID(claims.Subject)
 	if err != nil {
 		return user.User{}, err
 	}
@@ -160,17 +151,16 @@ func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	}
 
 	// check if user is still active
-	if !usr.IsActive {
+	if usr.IsActive != nil && !*usr.IsActive {
 		return "", errAccountDeactivated
 	}
 
 	// check if refresh has not expired
-	refreshExpirationDelta := core.Conf.GetDuration("jwtRefreshExpirationDelta")
-	expTime := time.Unix(claims.OriginalIssuedAt, 0).Add(refreshExpirationDelta)
+	expTime := time.Unix(claims.OrigIssuedAt, 0).Add(core.Conf.JWTRefreshExpirationDelta)
 	if time.Now().After(expTime) {
 		return "", errRefreshExpired
 	}
 
-	newClaims := GetUserClaims(usr, claims.OriginalIssuedAt)
+	newClaims := GetUserClaims(usr, claims.OrigIssuedAt)
 	return GenerateToken(newClaims)
 }

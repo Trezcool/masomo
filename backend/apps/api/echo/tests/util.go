@@ -10,10 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/trezcool/masomo/backend/apps/api/echo"
-	"github.com/trezcool/masomo/backend/core/user"
-	"github.com/trezcool/masomo/backend/services/email/dummy"
-	"github.com/trezcool/masomo/backend/storage/database/dummy"
+	. "github.com/trezcool/masomo/apps/api/echo"
+	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/services/email"
+	"github.com/trezcool/masomo/storage/database/sqlboiler"
+	"github.com/trezcool/masomo/tests"
 )
 
 var (
@@ -23,25 +24,20 @@ var (
 )
 
 func setup(t *testing.T) Server {
-	// set up DB
-	db, err := dummydb.Open()
-	if err != nil {
-		t.Fatalf("setup() failed: %v", err)
-	}
-	usrRepo = dummydb.NewUserRepository(db)
+	// set up DB & repos
+	db := testutil.PrepareDB(t)
+	usrRepo = boiledrepos.NewUserRepository(db)
 
 	// set up services
-	mailSvc := dummymail.NewServiceMock()
+	mailSvc := emailsvc.NewConsoleServiceMock()
 	usrSvc := user.NewServiceMock(usrRepo, mailSvc)
 
 	// set up server
-	app := NewServer(
+	return NewServer(
 		&Options{
-			DisableReqLogs: true,
-			UserSvc:        usrSvc,
+			UserSvc: usrSvc,
 		},
 	)
-	return app
 }
 
 type httpErr struct {
@@ -112,6 +108,9 @@ func jsonBytesEqual(t *testing.T, b1, b2 []byte) (bool, error) {
 	}
 	if reflect.DeepEqual(j1, j2) {
 		return true, nil
+	}
+	if j1 == nil || j2 == nil {
+		return false, nil
 	}
 	return assert.ElementsMatch(t, j1, j2), nil
 }

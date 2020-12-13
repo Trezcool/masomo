@@ -3,7 +3,7 @@ package dummydb
 import (
 	"sync"
 
-	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/core/user"
 )
 
 type (

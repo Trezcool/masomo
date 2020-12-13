@@ -4,12 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"sort"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/trezcool/masomo/backend/core"
-	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/core/user"
 )
 
 var (
@@ -248,8 +247,8 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	if err != nil {
 		return err
 	}
-	sort.Ints(query.IDs)
-	if i := sort.SearchInts(query.IDs, ctxUsr.ID); i < len(query.IDs) {
+	sort.Strings(query.IDs)
+	if i := sort.SearchStrings(query.IDs, ctxUsr.ID); i < len(query.IDs) {
 		if match := query.IDs[i]; ctxUsr.ID == match {
 			return errHttpForbidden
 		}
@@ -276,20 +275,18 @@ func (api *userApi) userRefreshToken(ctx echo.Context) error {
 func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
-			if id, err := strconv.Atoi(ctx.Param("id")); err == nil {
-				ctxUsr, err := getContextUser(ctx, svc)
-				if err != nil {
-					return err
-				}
+			ctxUsr, err := getContextUser(ctx, svc)
+			if err != nil {
+				return err
+			}
 
-				if id == ctxUsr.ID || ctxUsr.IsAdmin() {
-					usr, err := svc.GetByID(id)
-					if err == nil {
-						ctx.Set("object", usr)
-						return next(ctx)
-					} else if err != user.ErrNotFound {
-						return err
-					}
+			if ctx.Param("id") == ctxUsr.ID || ctxUsr.IsAdmin() {
+				usr, err := svc.GetByID(ctx.Param("id"))
+				if err == nil {
+					ctx.Set("object", usr)
+					return next(ctx)
+				} else if err != user.ErrNotFound {
+					return err
 				}
 			}
 			return errHttpNotFound
@@ -316,7 +313,7 @@ type (
 	}
 
 	DestroyMultipleRequest struct {
-		IDs []int `query:"id"`
+		IDs []string `query:"id"`
 	}
 )
 

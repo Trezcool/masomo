@@ -14,7 +14,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pmezard/go-difflib/difflib"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 
 	pwdComplexityTag  = "pwdcplx"
 	pwdComplexityText = "password must contain at least 1 uppercase character, 1 lowercase character, 1 digit and 1 special character"
-	specialRegex      = regexp.MustCompile("[^A-Za-z0-9]")
+	specialRegex      = regexp.MustCompile(`[^A-Za-z0-9]`)
 
 	pwdMaxSim      = .7
 	pwdAttrSimTag  = "pwdtoosim"
@@ -67,7 +67,7 @@ func init() {
 
 func loadCommonPasswords() []string {
 	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
-	pwdAssetPath := filepath.Join(core.Getwd(), "assets", "common-passwords.txt.gz")
+	pwdAssetPath := filepath.Join(core.Conf.WorkDir, "assets", "common-passwords.txt.gz")
 	if file, err := os.Open(pwdAssetPath); err == nil {
 		defer file.Close()
 		if gzRdr, err := gzip.NewReader(file); err == nil {

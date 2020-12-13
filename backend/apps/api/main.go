@@ -3,12 +3,12 @@ package main
 import (
 	"log"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo"
-	"github.com/trezcool/masomo/backend/core"
-	"github.com/trezcool/masomo/backend/core/user"
-	"github.com/trezcool/masomo/backend/services/email/dummy"
-	"github.com/trezcool/masomo/backend/services/email/sendgrid"
-	"github.com/trezcool/masomo/backend/storage/database/dummy"
+	"github.com/trezcool/masomo/apps/api/echo"
+	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/services/email"
+	"github.com/trezcool/masomo/storage/database"
+	"github.com/trezcool/masomo/storage/database/sqlboiler"
 )
 
 // TODO:
@@ -21,37 +21,24 @@ import (
 // - CSRF !!!
 // - Serve static files | Web Server ? (for mailers)
 func main() {
-	debug := core.Conf.GetBool("debug")
-
 	// set up DB
-	db, err := dummydb.Open()
+	db, err := database.Open()
 	errAndDie(err)
-
-	// set up mail service
-	var mailSvc core.EmailService
-	if debug {
-		mailSvc = dummymail.NewService()
-	} else {
-		mailSvc = sendgridmail.NewService()
-	}
+	defer db.Close()
 
 	// set up services
-	usrSvc := user.NewService(dummydb.NewUserRepository(db), mailSvc)
-
-	// TODO: move to script | SQL data migration (dev only?)
-	root := user.NewUser{
-		Name:     "Root",
-		Username: "root",
-		Email:    "root@masomo.cd",
-		Password: "LolC@t123",
-		Roles:    user.AllRoles,
+	var mailSvc core.EmailService
+	if core.Conf.Debug {
+		mailSvc = emailsvc.NewConsoleService()
+	} else {
+		mailSvc = emailsvc.NewSendgridService()
 	}
-	_, _ = usrSvc.Create(root)
+	usrSvc := user.NewService(db, boiledrepos.NewUserRepository(db), mailSvc)
 
 	// start API server
 	app := echoapi.NewServer(
 		&echoapi.Options{
-			Address: ":8000",
+			Addr:    ":8000",
 			UserSvc: usrSvc,
 		},
 	)

@@ -12,12 +12,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	texttmpl "text/template"
 )
 
 var (
-	templates = parseTemplates()
-	debug     = true // todo: from settings
+	templates tmplCache
+	tmplInit  sync.Once
 )
 
 type (
@@ -59,7 +60,7 @@ type (
 
 func (m *EmailMessage) getContextData() ContextData {
 	return ContextData{
-		FrontendBaseURL: "http://localhost:8080", // todo: TBD
+		FrontendBaseURL: Conf.FrontendBaseURL,
 		Data:            m.TemplateData,
 	}
 }
@@ -121,6 +122,9 @@ func (m *EmailMessage) renderHTML() error {
 }
 
 func (m *EmailMessage) Render() error {
+	if m.TemplateName != "" {
+		tmplInit.Do(parseTemplates) // only execute once during first request
+	}
 	if err := m.renderText(); err != nil {
 		return err
 	}
@@ -164,13 +168,13 @@ func (m *EmailMessage) HasRecipients() bool  { return len(m.To) > 0 }
 func (m *EmailMessage) HasContent() bool     { return (m.TextContent != "") || (m.HTMLContent != "") }
 func (m *EmailMessage) HasAttachments() bool { return len(m.Attachments) > 0 }
 
-func parseTemplates() tmplCache {
-	cache := make(tmplCache)
+func parseTemplates() {
+	templates = make(tmplCache)
 
-	rp := filepath.Join(Getwd(), "assets", "templates", "email")
+	rp := filepath.Join(Conf.WorkDir, "assets", "templates", "email")
 	fps, err := filepath.Glob(filepath.Join(rp, "*"))
 	if err != nil {
-		log.Fatal(fmt.Errorf("core.parseTemplates: %v", err))
+		log.Print(fmt.Errorf("core.parseTemplates: %v", err)) // todo: LogSvc.Errorf !!!
 	}
 
 	for _, fp := range fps {
@@ -180,30 +184,29 @@ func parseTemplates() tmplCache {
 			continue
 		}
 		name := fname[:strings.LastIndex(fname, ".")]
-		entry, ok := cache[name]
+		entry, ok := templates[name]
 		if !ok {
-			cache[name] = make(tmplCacheEntry)
-			entry = cache[name]
+			templates[name] = make(tmplCacheEntry)
+			entry = templates[name]
 		}
 		if ext == ".txt" {
 			tmpl, err := texttmpl.ParseFiles(filepath.Join(rp, "_base.txt"), fp)
 			if err != nil {
-				log.Fatal(fmt.Errorf("core.parseTemplates: %v", err))
+				log.Print(fmt.Errorf("core.parseTemplates: %v", err))
 			}
-			if debug {
+			if Conf.Debug || Conf.TestMode {
 				tmpl = tmpl.Option("missingkey=error")
 			}
 			entry[ext] = tmpl
 		} else {
 			tmpl, err := htmltmpl.ParseFiles(filepath.Join(rp, "_base.gohtml"), fp)
 			if err != nil {
-				log.Fatal(fmt.Errorf("core.parseTemplates: %v", err))
+				log.Print(fmt.Errorf("core.parseTemplates: %v", err))
 			}
-			if debug {
+			if Conf.Debug || Conf.TestMode {
 				tmpl = tmpl.Option("missingkey=error")
 			}
 			entry[ext] = tmpl
 		}
 	}
-	return cache
 }

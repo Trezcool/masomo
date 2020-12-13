@@ -1,6 +1,8 @@
 package user
 
-import "github.com/trezcool/masomo/backend/core"
+import (
+	"github.com/trezcool/masomo/core"
+)
 
 type serviceMock struct {
 	service
@@ -16,7 +18,7 @@ func NewServiceMock(repo Repository, mailSvc core.EmailService) Service {
 }
 
 func (svc *serviceMock) RequestPasswordReset(email string) error {
-	usr, err := svc.repo.GetUserByEmail(email)
+	usr, err := svc.GetByEmail(email)
 	if err != nil {
 		return err
 	}

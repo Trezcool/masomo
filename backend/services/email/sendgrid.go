@@ -1,4 +1,4 @@
-package sendgridmail
+package emailsvc
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	"github.com/sendgrid/sendgrid-go"
 	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 var (
@@ -15,28 +15,24 @@ var (
 	endpoint = "/v3/mail/send"
 )
 
-type service struct {
+type sendgridService struct {
 	key        string
 	from       *sgmail.Email
 	subjPrefix string
 	//logger
 }
 
-var _ core.EmailService = (*service)(nil)
+var _ core.EmailService = (*sendgridService)(nil)
 
-func NewService() core.EmailService {
-	key := core.Conf.GetString("sendgridApiKey")
-	appName := core.Conf.GetString("appName")
-	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
-
-	return &service{
-		key:        key,
-		from:       sgmail.NewEmail(appName, defaultFromEmail),
-		subjPrefix: "[" + appName + "] ",
+func NewSendgridService() core.EmailService {
+	return &sendgridService{
+		key:        core.Conf.SendgridApiKey,
+		from:       sgmail.NewEmail(core.Conf.AppName, core.Conf.DefaultFromEmail),
+		subjPrefix: "[" + core.Conf.AppName + "] ",
 	}
 }
 
-func (svc *service) SendMessages(messages ...*core.EmailMessage) {
+func (svc *sendgridService) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
 		msg := msg
 		go func() {
@@ -51,7 +47,7 @@ func (svc *service) SendMessages(messages ...*core.EmailMessage) {
 	}
 }
 
-func (svc *service) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
+func (svc *sendgridService) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
 	p := sgmail.NewPersonalization()
 	p.Subject = svc.subjPrefix + msg.Subject
 
@@ -81,11 +77,11 @@ func (svc *service) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
 	return m, nil
 }
 
-func (svc service) getSGEmail(addr mail.Address) *sgmail.Email {
+func (svc sendgridService) getSGEmail(addr mail.Address) *sgmail.Email {
 	return sgmail.NewEmail(addr.Name, addr.Address)
 }
 
-func (svc service) getSGAttachment(at core.Attachment) *sgmail.Attachment {
+func (svc sendgridService) getSGAttachment(at core.Attachment) *sgmail.Attachment {
 	return &sgmail.Attachment{
 		Content:     at.Content.String(),
 		Type:        at.ContentType,
@@ -94,7 +90,7 @@ func (svc service) getSGAttachment(at core.Attachment) *sgmail.Attachment {
 	}
 }
 
-func (svc service) send(msg core.EmailMessage) {
+func (svc sendgridService) send(msg core.EmailMessage) {
 	req := sendgrid.GetRequest(svc.key, endpoint, host)
 	req.Method = http.MethodPost
 	m, err := svc.prepare(msg)

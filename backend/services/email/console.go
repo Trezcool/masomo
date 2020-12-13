@@ -1,4 +1,4 @@
-package dummymail
+package emailsvc
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 var (
@@ -18,31 +18,28 @@ var (
 	mu           sync.Mutex
 )
 
-type service struct {
+type consoleService struct {
 	defaultFromEmail mail.Address
 	subjPrefix       string
 	disableOutput    bool
 }
 
-var _ core.EmailService = (*service)(nil)
+var _ core.EmailService = (*consoleService)(nil)
 
-func NewService() core.EmailService {
-	appName := core.Conf.GetString("appName")
-	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
-
-	return &service{
-		defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
-		subjPrefix:       "[" + appName + "] ",
+func NewConsoleService() core.EmailService {
+	return &consoleService{
+		defaultFromEmail: mail.Address{Name: core.Conf.AppName, Address: core.Conf.DefaultFromEmail},
+		subjPrefix:       "[" + core.Conf.AppName + "] ",
 	}
 }
 
-func (svc service) SendMessages(messages ...*core.EmailMessage) {
+func (svc consoleService) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
 		go svc.sendMessage(msg)
 	}
 }
 
-func (svc service) sendMessage(msg *core.EmailMessage) {
+func (svc consoleService) sendMessage(msg *core.EmailMessage) {
 	err := msg.Render()
 	if err != nil {
 		log.Fatal(err)
@@ -55,7 +52,7 @@ func (svc service) sendMessage(msg *core.EmailMessage) {
 	}
 }
 
-func (svc service) send(msg core.EmailMessage) {
+func (svc consoleService) send(msg core.EmailMessage) {
 	body := new(strings.Builder)
 
 	// Write mail header
@@ -120,7 +117,7 @@ func (svc service) send(msg core.EmailMessage) {
 	}
 }
 
-func (svc service) joinAddresses(addrs []mail.Address) string {
+func (svc consoleService) joinAddresses(addrs []mail.Address) string {
 	toJoin := make([]string, 0, len(addrs))
 	for _, a := range addrs {
 		toJoin = append(toJoin, a.String())
@@ -128,24 +125,21 @@ func (svc service) joinAddresses(addrs []mail.Address) string {
 	return strings.Join(toJoin, ", ")
 }
 
-type serviceMock struct {
-	service
+type consoleServiceMock struct {
+	consoleService
 }
 
-func NewServiceMock() core.EmailService {
-	appName := core.Conf.GetString("appName")
-	defaultFromEmail := core.Conf.GetString("defaultFromEmail")
-
-	return &serviceMock{
-		service: service{
-			defaultFromEmail: mail.Address{Name: appName, Address: defaultFromEmail},
-			subjPrefix:       "[" + appName + "] ",
+func NewConsoleServiceMock() core.EmailService {
+	return &consoleServiceMock{
+		consoleService: consoleService{
+			defaultFromEmail: mail.Address{Name: core.Conf.AppName, Address: core.Conf.DefaultFromEmail},
+			subjPrefix:       "[" + core.Conf.AppName + "] ",
 			disableOutput:    true,
 		},
 	}
 }
 
-func (svc *serviceMock) SendMessages(messages ...*core.EmailMessage) {
+func (svc *consoleServiceMock) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
 		// run synchronously
 		svc.sendMessage(msg)

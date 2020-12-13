@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 // Roles
@@ -79,11 +79,11 @@ type Role struct {
 }
 
 type User struct {
-	ID           int       `json:"id"`
+	ID           string    `json:"id"` // UUID
 	Name         string    `json:"name"`
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
-	IsActive     bool      `json:"is_active"`
+	IsActive     *bool     `json:"is_active"`
 	Roles        []string  `json:"roles"`
 	PasswordHash []byte    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"` // UTC
@@ -102,6 +102,10 @@ func (u *User) SetPassword(pwd string) error {
 
 func (u *User) CheckPassword(pwd string) error {
 	return bcrypt.CompareHashAndPassword(u.PasswordHash, []byte(pwd))
+}
+
+func (u *User) SetActive(val bool) {
+	u.IsActive = func(b bool) *bool { return &b }(val)
 }
 
 func (u *User) RoleStartsWith(prefix string) bool {
@@ -208,4 +212,11 @@ func (qf *QueryFilter) IsEmpty() bool {
 
 func (qf *QueryFilter) Clean() {
 	qf.Search = core.CleanString(qf.Search)
+}
+
+type GetFilter struct {
+	ID              string
+	Username        string
+	Email           string
+	UsernameOrEmail string
 }

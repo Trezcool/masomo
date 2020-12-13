@@ -1,0 +1,12 @@
+output = "../storage/database/sqlboiler/models"
+wipe = true
+no-hooks = true
+add-global-variants = true
+#add-soft-deletes = true
+
+[psql]
+dbname = "masomo"
+host = "localhost"
+user = "postgres"
+sslmode = "disable"
+blacklist = ["goose_db_version"]

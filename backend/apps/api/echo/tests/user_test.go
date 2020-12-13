@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/mail"
@@ -14,11 +15,11 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/trezcool/masomo/backend/apps/api/echo"
-	"github.com/trezcool/masomo/backend/core"
-	"github.com/trezcool/masomo/backend/core/user"
-	"github.com/trezcool/masomo/backend/services/email/dummy"
-	"github.com/trezcool/masomo/backend/tests"
+	"github.com/trezcool/masomo/apps/api/echo"
+	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/services/email"
+	"github.com/trezcool/masomo/tests"
 )
 
 func Test_userApi_userQuery(t *testing.T) {
@@ -61,7 +62,7 @@ func Test_userApi_userQuery(t *testing.T) {
 	naughty := testutil.CreateUser(t, usrRepo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
 
 	adminToken := getToken(t, admin)
-	empty := marchallList(t)
+	empty := marchallList(t, []interface{}{}...)
 
 	tests := []httpTest{
 		{name: "Auth required", path: "/v1/users", wantCode: http.StatusUnauthorized, wantData: marchallObj(t, errMissingToken)},
@@ -137,21 +138,19 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 
 	now := time.Now()
-	expirationDelta := core.Conf.GetDuration("jwtExpirationDelta")
-	refreshExpirationDelta := core.Conf.GetDuration("jwtRefreshExpirationDelta")
 	unrefreshableClaims := &echoapi.Claims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    "Masomo",
-			Subject:   strconv.Itoa(student.ID),
+			Subject:   student.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(expirationDelta).Unix(),
+			ExpiresAt: now.Add(core.Conf.JWTExpirationDelta).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OriginalIssuedAt: now.Add(-2 * refreshExpirationDelta).Unix(), // older than threshold
-		IsStudent:        student.IsStudent(),
-		IsTeacher:        student.IsTeacher(),
-		IsAdmin:          student.IsAdmin(),
-		Roles:            student.Roles,
+		OrigIssuedAt: now.Add(-2 * core.Conf.JWTRefreshExpirationDelta).Unix(), // older than threshold
+		IsStudent:    student.IsStudent(),
+		IsTeacher:    student.IsTeacher(),
+		IsAdmin:      student.IsAdmin(),
+		Roles:        student.Roles,
 	}
 	unrefreshableToken, err := echoapi.GenerateToken(unrefreshableClaims)
 	if err != nil {
@@ -227,7 +226,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 		tt.path = "/v1/users/password-reset"
 
 		t.Run(tt.name, func(t *testing.T) {
-			dummymail.SentMessages = nil // reset
+			emailsvc.SentMessages = nil // reset
 
 			req, rec := newRequest(tt.method, tt.path, tt.body)
 			app.ServeHTTP(rec, req)
@@ -235,10 +234,10 @@ func Test_userApi_userResetPassword(t *testing.T) {
 
 			if extra, ok := tt.extra.(extraTest); ok {
 				if extra.emailSent {
-					if len(dummymail.SentMessages) != 1 {
-						t.Fatalf("failed! len(SentMessages) = %d; want 1", len(dummymail.SentMessages))
+					if len(emailsvc.SentMessages) != 1 {
+						t.Fatalf("failed! len(SentMessages) = %d; want 1", len(emailsvc.SentMessages))
 					}
-					msg := dummymail.SentMessages[0]
+					msg := emailsvc.SentMessages[0]
 					if msg.To[0] != extra.to {
 						t.Errorf("failed! To = %v; want %v", msg.To[0], extra.to)
 					}
@@ -255,8 +254,8 @@ func Test_userApi_userResetPassword(t *testing.T) {
 						t.Errorf("failed! HTML content does not match pathRegex %v", pathRegex)
 					}
 				} else {
-					if len(dummymail.SentMessages) > 0 {
-						t.Errorf("failed! len(SentMessages) = %d; want 0", len(dummymail.SentMessages))
+					if len(emailsvc.SentMessages) > 0 {
+						t.Errorf("failed! len(SentMessages) = %d; want 0", len(emailsvc.SentMessages))
 					}
 				}
 			}
@@ -275,8 +274,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	}
 
 	// generate an expired token
-	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
-	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
+	dayLate := core.Conf.PasswordResetTimeoutDelta + (24 * time.Hour)
 	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := user.MakeToken(student)
 	if err != nil {
@@ -356,7 +354,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 			checkCodeAndData(t, tt, rec)
 
 			if tt.wantCode == http.StatusOK {
-				refreshedStudent, err := usrRepo.GetUserByID(student.ID)
+				refreshedStudent, err := usrRepo.GetUser(context.Background(), user.GetFilter{ID: student.ID})
 				if err != nil {
 					t.Fatalf("GetUserByID() failed, %v", err)
 				}

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/trezcool/masomo/backend/core/user"
+	"github.com/trezcool/masomo/core/user"
 )
 
 var pkCount int
@@ -13,9 +13,10 @@ type userRepository struct {
 	db *userTable
 }
 
-var _ user.Repository = (*userRepository)(nil) // interface compliance check
+// TODO: DEPRECATED!
+//var _ user.Repository = (*userRepository)(nil) // interface compliance check
 
-func NewUserRepository(db *DB) user.Repository {
+func NewUserRepository(db *DB) *userRepository {
 	return &userRepository{db: db.user}
 }
 
@@ -38,10 +39,10 @@ func (repo *userRepository) CheckUsernameUniqueness(username, email string, excl
 
 	for _, usr := range repo.query() {
 		if username != "" && usr.Username == username && !isExcluded(usr, excludedUsers, exclUsrsLen) {
-			return user.ErrUsernameExists
+			return user.ErrUserExists
 		}
 		if email != "" && usr.Email == email && !isExcluded(usr, excludedUsers, exclUsrsLen) {
-			return user.ErrEmailExists
+			return user.ErrUserExists
 		}
 	}
 	return nil
@@ -52,8 +53,9 @@ func (repo *userRepository) CreateUser(usr user.User) (user.User, error) {
 	defer repo.db.Unlock()
 
 	pkCount++
-	usr.ID = pkCount
-	repo.db.table[usr.ID] = &usr
+	//usr.ID = pkCount
+	//repo.db.table[usr.ID] = &usr
+	repo.db.table[1] = &usr
 	return usr, nil
 }
 
@@ -128,7 +130,7 @@ func (repo *userRepository) FilterUsers(filter user.QueryFilter) ([]user.User, e
 		users = filtered
 	}
 	// users with any of the specified roles
-	if users != nil && filter.Roles != nil && len(filter.Roles) > 0 {
+	if users != nil && len(filter.Roles) > 0 {
 		var filtered []user.User
 		for _, u := range users {
 			for _, r := range filter.Roles {
@@ -143,7 +145,7 @@ func (repo *userRepository) FilterUsers(filter user.QueryFilter) ([]user.User, e
 	if users != nil && filter.IsActive != nil {
 		var filtered []user.User
 		for _, u := range users {
-			if u.IsActive == *filter.IsActive {
+			if u.IsActive == filter.IsActive {
 				filtered = append(filtered, u)
 			}
 		}
@@ -178,7 +180,8 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive ...*bool) (user.U
 	defer repo.db.Unlock()
 
 	// only save set fields
-	origUsr, ok := repo.db.table[usr.ID]
+	//origUsr, ok := repo.db.table[usr.ID]
+	origUsr, ok := repo.db.table[1]
 	if !ok {
 		return user.User{}, user.ErrNotFound
 	}
@@ -189,7 +192,7 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive ...*bool) (user.U
 		origUsr.PasswordHash = usr.PasswordHash
 	}
 	if len(isActive) > 0 {
-		origUsr.IsActive = *isActive[0]
+		origUsr.IsActive = isActive[0]
 	}
 	if !usr.LastLogin.IsZero() {
 		origUsr.LastLogin = usr.LastLogin
@@ -199,7 +202,8 @@ func (repo *userRepository) UpdateUser(usr user.User, isActive ...*bool) (user.U
 	origUsr.Email = usr.Email
 	origUsr.UpdatedAt = usr.UpdatedAt
 
-	repo.db.table[usr.ID] = origUsr
+	//repo.db.table[usr.ID] = origUsr
+	repo.db.table[1] = origUsr
 	return *origUsr, nil
 }
 

@@ -4,21 +4,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/google/uuid"
+
+	"github.com/trezcool/masomo/core"
 )
 
 func TestMakeVerifyToken(t *testing.T) {
 	now := time.Now()
 	usr := User{
-		ID:        1,
+		ID:        uuid.New().String(),
 		Name:      "T",
 		Username:  "t",
 		Email:     "t@test.test",
-		IsActive:  true,
 		CreatedAt: now,
 		UpdatedAt: now,
 		LastLogin: now,
 	}
+	usr.SetActive(true)
 	_ = usr.SetPassword("pwd")
 
 	validToken, err := MakeToken(usr)
@@ -27,8 +29,7 @@ func TestMakeVerifyToken(t *testing.T) {
 	}
 
 	// generate an expired token
-	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
-	dayLate := passwordResetTimeoutDelta + (24 * time.Hour)
+	dayLate := core.Conf.PasswordResetTimeoutDelta + (24 * time.Hour)
 	NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := MakeToken(usr)
 	if err != nil {

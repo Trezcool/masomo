@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 var (
@@ -28,20 +28,16 @@ var (
 
 // EncodeUID base64 encodes given User ID
 func EncodeUID(usr User) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(usr.ID)))
+	return base64.RawURLEncoding.EncodeToString([]byte(usr.ID))
 }
 
 // decodeUID base64 decodes given UID
-func decodeUID(uid string) (int, error) {
+func decodeUID(uid string) (string, error) {
 	idBytes, err := base64.RawURLEncoding.DecodeString(uid)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
-	id, err := strconv.Atoi(string(idBytes))
-	if err != nil {
-		return 0, err
-	}
-	return id, nil
+	return string(idBytes), nil
 }
 
 // MakeToken generates a password reset token for a given User.
@@ -80,8 +76,7 @@ func verifyToken(usr User, token string) error {
 	}
 
 	// check that the timestamp is within limit
-	passwordResetTimeoutDelta := core.Conf.GetDuration("passwordResetTimeoutDelta")
-	if (_numDaysSince2001(time.Now()) - ts) > int(passwordResetTimeoutDelta/(24*time.Hour)) {
+	if (_numDaysSince2001(time.Now()) - ts) > int(core.Conf.PasswordResetTimeoutDelta/(24*time.Hour)) {
 		return errTokenExpired
 	}
 	return nil
@@ -102,11 +97,9 @@ func _numDaysSince2001(t time.Time) int {
 }
 
 func _sign(val []byte) (string, error) {
-	secretKey := core.Conf.GetString("secretKey")
-	key := sha256.Sum256(append(salt, secretKey...))
+	key := sha256.Sum256(append(salt, core.Conf.SecretKey...))
 	h := hmac.New(sha256.New, key[:])
-	_, err := h.Write(val)
-	if err != nil {
+	if _, err := h.Write(val); err != nil {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
@@ -114,7 +107,7 @@ func _sign(val []byte) (string, error) {
 
 func _hashValue(usr User, ts int) []byte {
 	var val bytes.Buffer
-	val.WriteString(strconv.Itoa(usr.ID))
+	val.WriteString(usr.ID)
 	val.Write(usr.PasswordHash)
 	if !usr.LastLogin.IsZero() {
 		val.WriteString(usr.LastLogin.String())

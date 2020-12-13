@@ -1,59 +1,53 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/mail"
 	"time"
 
-	"github.com/labstack/gommon/log"
-
-	"github.com/trezcool/masomo/backend/core"
+	"github.com/trezcool/masomo/core"
 )
 
 var (
 	// errors
-	ErrNotFound       = errors.New("user not found")
-	ErrEmailExists    = errors.New("a user with this email already exists")
-	ErrUsernameExists = errors.New("a user with this username already exists")
+	ErrNotFound   = errors.New("user not found")
+	ErrUserExists = errors.New("a user with this username or email already exists")
 )
 
 type (
+	// a sql.Tx is optionally passed to methods as core.DBExecutor for Transaction control only
 	Repository interface {
-		CheckUsernameUniqueness(username, email string, excludedUsers ...User) error
-		CreateUser(user User) (User, error)
-		QueryAllUsers() ([]User, error)
-		GetUserByID(id int) (User, error)
-		GetUserByUsername(username string) (User, error)
-		GetUserByEmail(email string) (User, error)
-		GetUserByUsernameOrEmail(username string) (User, error)
-		// FilterUsers applies AND operation on available QueryFilter fields.
+		CheckUsernameUniqueness(ctx context.Context, username, email string, excludedUsers []User, exec ...core.DBExecutor) error
+		CreateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
+		// QueryUsers returns all Users or filters them by applying AND operation on available QueryFilter fields.
 		// QueryFilter.Search does a case-insensitive match on one of User.Name, User.Username or User.Email.
-		FilterUsers(filter QueryFilter) ([]User, error) // TODO: make it functional ?
-		UpdateUser(user User, isActive ...*bool) (User, error)
-		DeleteUsersByID(ids ...int) error
+		QueryUsers(ctx context.Context, filter *QueryFilter, exec ...core.DBExecutor) ([]User, error)
+		GetUser(ctx context.Context, filter GetFilter, exec ...core.DBExecutor) (User, error)
+		UpdateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
+		DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error)
 	}
 
 	Service interface {
 		CheckUniqueness(uname, email string, exclUsers ...User) error
 		Create(nu NewUser) (User, error)
 		QueryAll() ([]User, error)
-		GetByID(id int) (User, error)
+		GetByID(id string) (User, error)
 		GetByUsername(uname string) (User, error)
 		GetByEmail(email string) (User, error)
 		GetByUsernameOrEmail(uname string) (User, error)
 		Filter(filter QueryFilter) ([]User, error)
-		Update(id int, uu UpdateUser) (User, error)
+		Update(id string, uu UpdateUser) (User, error)
 		SetLastLogin(usr User) (User, error)
 		RequestPasswordReset(email string) error
 		ResetPassword(rp ResetUserPassword) error
-		// SudoResetPassword resets the User's password without Token verification.
-		// To be used via the admin interface only.
-		SudoResetPassword(uname, pwd string) error
-		Delete(ids ...int) error
+		Delete(ids ...string) error
 	}
 
 	service struct {
+		db      core.DB
 		repo    Repository
 		mailSvc core.EmailService
 		//log *log.Logger
@@ -62,94 +56,87 @@ type (
 
 var _ Service = (*service)(nil)
 
-func NewService(repo Repository, mailSvc core.EmailService) Service {
+// todo: default ordering !!! "name" | "-name"
+func NewService(db core.DB, repo Repository, mailSvc core.EmailService) Service {
 	return &service{
+		db:      db,
 		repo:    repo,
 		mailSvc: mailSvc,
 	}
 }
 
 func (svc *service) CheckUniqueness(uname, email string, exclUsers ...User) error {
-	if err := svc.repo.CheckUsernameUniqueness(uname, email, exclUsers...); err != nil {
-		var field string
-		switch err {
-		case ErrUsernameExists:
-			field = "username"
-		case ErrEmailExists:
-			field = "email"
-		default:
-			return err
+	if err := svc.repo.CheckUsernameUniqueness(context.Background(), uname, email, exclUsers); err != nil {
+		if err == ErrUserExists {
+			return core.NewValidationError(err)
 		}
-		return core.NewValidationError(err, core.FieldError{Field: field, Error: err.Error()})
+		return err
 	}
 	return nil
 }
 
 func (svc *service) Create(nu NewUser) (User, error) {
-	now := time.Now().UTC()
 	usr := User{
-		Name:      nu.Name,
-		Username:  nu.Username,
-		Email:     nu.Email,
-		IsActive:  true,
-		Roles:     nu.Roles,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Name:     nu.Name,
+		Username: nu.Username,
+		Email:    nu.Email,
+		Roles:    nu.Roles,
 	}
+	usr.SetActive(true)
 	if err := usr.SetPassword(nu.Password); err != nil {
 		return User{}, err
 	}
-	return svc.repo.CreateUser(usr)
+	return svc.repo.CreateUser(context.Background(), usr)
 }
 
 func (svc *service) QueryAll() ([]User, error) {
-	return svc.repo.QueryAllUsers()
+	return svc.repo.QueryUsers(context.Background(), nil /* filter */)
 }
 
-func (svc *service) GetByID(id int) (User, error) {
-	return svc.repo.GetUserByID(id)
+func (svc *service) GetByID(id string) (User, error) {
+	return svc.repo.GetUser(context.Background(), GetFilter{ID: id})
 }
 
 func (svc *service) GetByUsername(uname string) (User, error) {
-	return svc.repo.GetUserByUsername(core.CleanString(uname, true /* lower */))
+	return svc.repo.GetUser(context.Background(), GetFilter{Username: core.CleanString(uname, true /* lower */)})
 }
 
 func (svc *service) GetByEmail(email string) (User, error) {
-	return svc.repo.GetUserByEmail(core.CleanString(email, true /* lower */))
+	return svc.repo.GetUser(context.Background(), GetFilter{Email: core.CleanString(email, true /* lower */)})
 }
 
 func (svc *service) GetByUsernameOrEmail(uname string) (User, error) {
-	return svc.repo.GetUserByUsernameOrEmail(core.CleanString(uname, true /* lower */))
+	return svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: core.CleanString(uname, true /* lower */)})
 }
 
 func (svc *service) Filter(filter QueryFilter) ([]User, error) {
-	return svc.repo.FilterUsers(filter)
+	return svc.repo.QueryUsers(context.Background(), &filter)
 }
 
-func (svc *service) Update(id int, uu UpdateUser) (User, error) {
+func (svc *service) Update(id string, uu UpdateUser) (User, error) {
 	usr := User{
-		ID:        id,
-		Name:      uu.Name,
-		Username:  uu.Username,
-		Email:     uu.Email,
-		Roles:     uu.Roles,
-		UpdatedAt: time.Now().UTC(),
+		ID:       id,
+		Name:     uu.Name,
+		Username: uu.Username,
+		Email:    uu.Email,
+		IsActive: uu.IsActive,
+		Roles:    uu.Roles,
 	}
 	if uu.Password != "" {
 		if err := usr.SetPassword(uu.Password); err != nil {
 			return User{}, err
 		}
 	}
-	return svc.repo.UpdateUser(usr, uu.IsActive)
+	return svc.repo.UpdateUser(context.Background(), usr)
 }
 
 func (svc *service) SetLastLogin(usr User) (User, error) {
 	usr.LastLogin = time.Now().UTC()
-	return svc.repo.UpdateUser(usr)
+	return svc.repo.UpdateUser(context.Background(), usr)
 }
 
 func (svc *service) RequestPasswordReset(email string) error {
-	usr, err := svc.repo.GetUserByEmail(email)
+	usr, err := svc.GetByEmail(email)
 	if err != nil {
 		return err
 	}
@@ -181,14 +168,12 @@ func (svc *service) ResetPassword(rp ResetUserPassword) error {
 	if err != nil {
 		return core.NewValidationError(err, core.FieldError{Field: "uid", Error: "invalid value"})
 	}
-	usr, err := svc.repo.GetUserByID(uid)
+	usr, err := svc.GetByID(uid)
 	if err != nil {
-		switch err {
-		case ErrNotFound:
+		if err == ErrNotFound {
 			return core.NewValidationError(err, core.FieldError{Field: "uid", Error: "invalid value"})
-		default:
-			return err
 		}
+		return err
 	}
 	if err := verifyToken(usr, rp.Token); err != nil {
 		switch err {
@@ -202,26 +187,15 @@ func (svc *service) ResetPassword(rp ResetUserPassword) error {
 	if err := usr.SetPassword(rp.Password); err != nil {
 		return err
 	}
-	if _, err := svc.repo.UpdateUser(usr); err != nil {
+	if _, err := svc.repo.UpdateUser(context.Background(), usr); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (svc *service) SudoResetPassword(uname, pwd string) error {
-	usr, err := svc.repo.GetUserByUsernameOrEmail(uname)
-	if err != nil {
-		return err
-	}
-	if err := usr.SetPassword(pwd); err != nil {
-		return err
-	}
-	if _, err := svc.repo.UpdateUser(usr); err != nil {
+func (svc *service) Delete(ids ...string) error {
+	if _, err := svc.repo.DeleteUsersByID(context.Background(), ids); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (svc *service) Delete(ids ...int) error {
-	return svc.repo.DeleteUsersByID(ids...)
 }
