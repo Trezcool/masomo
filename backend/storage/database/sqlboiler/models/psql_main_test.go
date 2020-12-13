@@ -56,6 +56,8 @@ func (p *pgTester) setup() error {
 
 	viper.SetDefault("psql.host", "localhost")
 	viper.SetDefault("psql.dbname", "masomotest")
+	viper.SetDefault("psql.user", "masomotest")
+	viper.SetDefault("psql.pass", "masomotest")
 
 	p.dbName = viper.GetString("psql.dbname")
 	p.host = viper.GetString("psql.host")
