@@ -43,7 +43,7 @@ func PrepareDB(t *testing.T) *sql.DB {
 	}
 
 	//dbResetMigrations(t, db)
-	dbTruncateAndMigrate(t, db)
+	dbMigrateAndTruncate(t, db)
 	return db
 }
 
@@ -58,12 +58,12 @@ func dbResetMigrations(t *testing.T, db *sql.DB) {
 }
 
 // better..
-func dbTruncateAndMigrate(t *testing.T, db *sql.DB) {
-	if _, err := db.Exec(truncateTablesSQL); err != nil {
-		t.Fatalf("PrepareDB: failed to truncate tables: %v", err)
-	}
+func dbMigrateAndTruncate(t *testing.T, db *sql.DB) {
 	if err := goose.Run("up", db, migrationsDir); err != nil {
 		t.Fatalf("PrepareDB: failed to migrate: %v", err)
+	}
+	if _, err := db.Exec(truncateTablesSQL); err != nil {
+		t.Fatalf("PrepareDB: failed to truncate tables: %v", err)
 	}
 }
 
