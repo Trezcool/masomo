@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -50,21 +49,12 @@ func Test_userApi_userQuery(t *testing.T) {
 	}
 	bPtr := func(b bool) *bool { return &b }
 
-	now := time.Now()
+	now := time.Now().Truncate(time.Microsecond)
 	t1 := now.Add(1 * time.Hour)
 	t2 := now.Add(2 * time.Hour)
 	t3 := now.Add(3 * time.Hour)
 	t4 := now.Add(4 * time.Hour)
 	t5 := now.Add(5 * time.Hour)
-
-	fmt.Printf("\n\nnow: %v", now)
-	fmt.Printf("\nnow.T: %v", now.Truncate(time.Microsecond))
-	fmt.Printf("\nt1: %v", t1)
-	fmt.Printf("\nt2: %v", t2)
-	fmt.Printf("\nt3: %v", t3)
-	fmt.Printf("\nt3.T: %v", t3.Truncate(time.Microsecond))
-	fmt.Printf("\nt4: %v", t4)
-	fmt.Printf("\nt5: %v\n\n", t5)
 
 	usr1 := testutil.CreateUser(t, usrRepo, "User", "awe", "awe@test.cd", "", nil, true, t1)
 	usr2 := testutil.CreateUser(t, usrRepo, "King", "user02", "king@test.cd", "", nil, true)
