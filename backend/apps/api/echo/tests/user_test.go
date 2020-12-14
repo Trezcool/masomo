@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -55,6 +56,15 @@ func Test_userApi_userQuery(t *testing.T) {
 	t3 := now.Add(3 * time.Hour)
 	t4 := now.Add(4 * time.Hour)
 	t5 := now.Add(5 * time.Hour)
+
+	fmt.Printf("\n\nnow: %v", now)
+	fmt.Printf("\nnow.T: %v", now.Truncate(time.Microsecond))
+	fmt.Printf("\nt1: %v", t1)
+	fmt.Printf("\nt2: %v", t2)
+	fmt.Printf("\nt3: %v", t3)
+	fmt.Printf("\nt3.T: %v", t3.Truncate(time.Microsecond))
+	fmt.Printf("\nt4: %v", t4)
+	fmt.Printf("\nt5: %v\n\n", t5)
 
 	usr1 := testutil.CreateUser(t, usrRepo, "User", "awe", "awe@test.cd", "", nil, true, t1)
 	usr2 := testutil.CreateUser(t, usrRepo, "King", "user02", "king@test.cd", "", nil, true)
@@ -136,6 +146,11 @@ func Test_userApi_userQuery(t *testing.T) {
 		{
 			name: "order by -is_active,name", path: path("", "-is_active,name", time.Time{}, time.Time{}, nil), token: adminToken,
 			wantData: marchallList(t, admin, student, usr2, principal, teacher, usr1, naughty),
+		},
+		// filtering & ordering
+		{
+			name: "filtering & ordering", path: path("", "name", time.Time{}, time.Time{}, nil, user.RoleTeacher, user.RoleStudent), token: adminToken,
+			wantData: marchallList(t, student, naughty, teacher),
 		},
 	}
 	for _, tt := range tests {
