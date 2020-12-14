@@ -60,7 +60,7 @@ jobs:
         TEST_DBNAME: masomotest
         TEST_DBUSER: masomotest
         TEST_DBPASSWORD: masomotest
-      run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload test coverage
       uses: codecov/codecov-action@v1.0.15
