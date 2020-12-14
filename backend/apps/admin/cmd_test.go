@@ -5,26 +5,53 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 
 	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/storage/database"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 	"github.com/trezcool/masomo/tests"
 )
 
-var usrRepo user.Repository
+var (
+	db      *sql.DB
+	cli     *commandLine
+	usrRepo user.Repository
+)
 
-func setup(t *testing.T) *commandLine {
+func TestMain(m *testing.M) {
+	var err error
+
 	// set up DB & repos
-	db := testutil.PrepareDB(t)
+	db, err = database.Open()
+	if err != nil {
+		fmt.Printf("database.Open(): %v", err)
+		os.Exit(1)
+	}
+	if err = db.Ping(); err != nil {
+		fmt.Printf("db.Ping(): %v", err)
+		os.Exit(1)
+	}
 	usrRepo = boiledrepos.NewUserRepository(db)
 
-	// start CLI
-	return &commandLine{
+	// set up CLI
+	cli = &commandLine{
 		db:      db,
 		usrRepo: usrRepo,
 	}
+
+	// run tests
+	code := m.Run()
+
+	// clean up
+	if err = db.Close(); err != nil {
+		fmt.Printf("db.Close(): %v", err)
+		os.Exit(1)
+	}
+
+	os.Exit(code)
 }
 
 type cliTest struct {
@@ -36,7 +63,7 @@ type cliTest struct {
 }
 
 func Test_commandLine_migrate(t *testing.T) {
-	cli := setup(t)
+	testutil.ResetDB(t, db)
 
 	origGooseRunFunc := gooseRunFunc
 	gooseRunFunc = func(command string, db *sql.DB, dir string, args ...string) error {
@@ -109,7 +136,7 @@ func Test_commandLine_migrate(t *testing.T) {
 }
 
 func Test_commandLine_resetPassword(t *testing.T) {
-	cli := setup(t)
+	testutil.ResetDB(t, db)
 
 	usr := testutil.CreateUser(t, usrRepo, "User", "awe", "awe@test.cd", "mdr", nil, true)
 

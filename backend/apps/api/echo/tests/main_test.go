@@ -2,28 +2,43 @@ package tests
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
 
 	. "github.com/trezcool/masomo/apps/api/echo"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/services/email"
+	"github.com/trezcool/masomo/storage/database"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
-	"github.com/trezcool/masomo/tests"
 )
 
 var (
+	db      *sql.DB
+	app     Server
 	usrRepo user.Repository
 
 	errMissingToken = httpErr{Error: "missing or malformed jwt"}
 )
 
-func setup(t *testing.T) Server {
+func TestMain(m *testing.M) {
+	var err error
+
 	// set up DB & repos
-	db := testutil.PrepareDB(t)
+	db, err = database.Open()
+	if err != nil {
+		fmt.Printf("database.Open(): %v", err)
+		os.Exit(1)
+	}
+	if err = db.Ping(); err != nil {
+		fmt.Printf("db.Ping(): %v", err)
+		os.Exit(1)
+	}
 	usrRepo = boiledrepos.NewUserRepository(db)
 
 	// set up services
@@ -31,11 +46,22 @@ func setup(t *testing.T) Server {
 	usrSvc := user.NewServiceMock(db, usrRepo, mailSvc)
 
 	// set up server
-	return NewServer(
+	app = NewServer(
 		&Options{
 			UserSvc: usrSvc,
 		},
 	)
+
+	// run tests
+	code := m.Run()
+
+	// clean up
+	if err = db.Close(); err != nil {
+		fmt.Printf("db.Close(): %v", err)
+		os.Exit(1)
+	}
+
+	os.Exit(code)
 }
 
 type httpErr struct {
@@ -88,7 +114,6 @@ func marchallObj(t *testing.T, obj interface{}) []byte {
 	return data
 }
 
-// nolint
 func marchallList(t *testing.T, objs ...interface{}) []byte {
 	data, err := json.Marshal(objs)
 	if err != nil {

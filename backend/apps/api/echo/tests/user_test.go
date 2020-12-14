@@ -23,7 +23,7 @@ import (
 )
 
 func Test_userApi_userQuery(t *testing.T) {
-	app := setup(t)
+	testutil.ResetDB(t, db)
 
 	path := func(search, ordering string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
 		v := make(url.Values)
@@ -153,7 +153,7 @@ func Test_userApi_userQuery(t *testing.T) {
 }
 
 func Test_userApi_userRefreshToken(t *testing.T) {
-	app := setup(t)
+	testutil.ResetDB(t, db)
 
 	naughty := testutil.CreateUser(t, usrRepo, "N Dog", "ndog", "ndog@test.cd", "", []string{user.RoleStudent}, false) // 😂
 	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
@@ -212,7 +212,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 }
 
 func Test_userApi_userResetPassword(t *testing.T) {
-	app := setup(t)
+	testutil.ResetDB(t, db)
 
 	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "", []string{user.RoleStudent}, true)
 	successData := marchallObj(t, echoapi.SuccessResponse{Success: "If the email address supplied is associated with an active account on this system, " +
@@ -285,7 +285,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 }
 
 func Test_userApi_userConfirmPasswordReset(t *testing.T) {
-	app := setup(t)
+	testutil.ResetDB(t, db)
 
 	student := testutil.CreateUser(t, usrRepo, "Hero", "hero", "user3@test.cd", "lol", []string{user.RoleStudent}, true)
 	validUID := user.EncodeUID(student)

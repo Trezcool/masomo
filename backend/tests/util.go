@@ -11,7 +11,6 @@ import (
 
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
-	"github.com/trezcool/masomo/storage/database"
 )
 
 var (
@@ -33,25 +32,15 @@ $func$;
 `
 )
 
-func PrepareDB(t *testing.T) *sql.DB {
-	db, err := database.Open()
-	if err != nil {
-		t.Fatalf("PrepareDB: db.Open(): %v", err)
-	}
-	if err := db.Ping(); err != nil {
-		t.Fatalf("PrepareDB: db.Ping(): %v", err)
-	}
-
-	dbMigrateAndTruncate(t, db)
-	return db
-}
-
-func dbMigrateAndTruncate(t *testing.T, db *sql.DB) {
+func ResetDB(t *testing.T, db *sql.DB) {
+	// migrate
 	if err := goose.Run("up", db, migrationsDir); err != nil {
-		t.Fatalf("PrepareDB: migrate up: %v", err)
+		t.Fatalf("ResetDB: migrate up: %v", err)
 	}
+
+	// truncate
 	if _, err := db.Exec(truncateTablesSQL); err != nil {
-		t.Fatalf("PrepareDB: truncate tables: %v", err)
+		t.Fatalf("ResetDB: truncate tables: %v", err)
 	}
 }
 
