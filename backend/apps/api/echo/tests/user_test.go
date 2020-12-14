@@ -23,7 +23,6 @@ import (
 )
 
 func Test_userApi_userQuery(t *testing.T) {
-	t.Skip("CI failing... :( skip for now.. will address later..")
 	app := setup(t)
 
 	path := func(search, ordering string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
@@ -176,7 +175,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 	}
 	unrefreshableToken, err := echoapi.GenerateToken(unrefreshableClaims)
 	if err != nil {
-		t.Fatalf("GenerateToken() failed: %v", err)
+		t.Fatalf("GenerateToken(): %v", err)
 	}
 
 	tests := []httpTest{
@@ -221,7 +220,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 
 	pathRegex, err := regexp.Compile("/password-reset/.+/.+")
 	if err != nil {
-		t.Fatalf("pathRegex failed, %v", err)
+		t.Fatalf("regexp.Compile(): %v", err)
 	}
 
 	type extraTest struct {
@@ -292,7 +291,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	validUID := user.EncodeUID(student)
 	validToken, err := user.MakeToken(student)
 	if err != nil {
-		t.Fatalf("MakeToken() failed, %v", err)
+		t.Fatalf("MakeToken(): %v", err)
 	}
 
 	// generate an expired token
@@ -300,7 +299,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := user.MakeToken(student)
 	if err != nil {
-		t.Fatalf("MakeToken() failed, %v", err)
+		t.Fatalf("MakeToken(): %v", err)
 	}
 	user.NowFunc = time.Now // reset
 

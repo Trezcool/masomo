@@ -38,6 +38,7 @@ type cliTest struct {
 func Test_commandLine_migrate(t *testing.T) {
 	cli := setup(t)
 
+	origGooseRunFunc := gooseRunFunc
 	gooseRunFunc = func(command string, db *sql.DB, dir string, args ...string) error {
 		switch command {
 		case "up", "up-by-one", "down", "fix", "redo", "reset", "status", "version": // pass
@@ -104,6 +105,7 @@ func Test_commandLine_migrate(t *testing.T) {
 			}
 		})
 	}
+	gooseRunFunc = origGooseRunFunc // reset
 }
 
 func Test_commandLine_resetPassword(t *testing.T) {
@@ -123,6 +125,7 @@ func Test_commandLine_resetPassword(t *testing.T) {
 		{name: "reset with username", args: []string{"resetpassword", "-username", usr.Username}, extra: extra{pwd: "lol"}},
 		{name: "reset with email", args: []string{"resetpassword", "-username", usr.Email}, extra: extra{pwd: "lmao"}},
 	}
+	origReadPasswordFunc := readPasswordFunc
 	for _, tt := range tests {
 		args := append([]string{"admin"}, tt.args...)
 
@@ -147,4 +150,5 @@ func Test_commandLine_resetPassword(t *testing.T) {
 			}
 		})
 	}
+	readPasswordFunc = origReadPasswordFunc // reset
 }

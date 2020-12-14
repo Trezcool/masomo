@@ -29,7 +29,7 @@ lint:
 	golangci-lint run --disable=typecheck
 
 test: lint
-	ENV=TEST go test -v -race ./...
+	ENV=TEST go test -p 1 -timeout 2m -race -v ./...
 
 # ==============================================================================
 # SQLBoiler models generation

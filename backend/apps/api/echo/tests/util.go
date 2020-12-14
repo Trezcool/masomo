@@ -75,7 +75,7 @@ func getToken(t *testing.T, usr user.User) string {
 	claims := GetUserClaims(usr)
 	token, err := GenerateToken(claims)
 	if err != nil {
-		t.Fatalf("getToken() failed: %v", err)
+		t.Fatalf("getToken(): %v", err)
 	}
 	return token
 }
@@ -83,7 +83,7 @@ func getToken(t *testing.T, usr user.User) string {
 func marchallObj(t *testing.T, obj interface{}) []byte {
 	data, err := json.Marshal(obj)
 	if err != nil {
-		t.Fatalf("marchallList() failed: %v", err)
+		t.Fatalf("marchallList(): %v", err)
 	}
 	return data
 }
@@ -92,7 +92,7 @@ func marchallObj(t *testing.T, obj interface{}) []byte {
 func marchallList(t *testing.T, objs ...interface{}) []byte {
 	data, err := json.Marshal(objs)
 	if err != nil {
-		t.Fatalf("marchallList() failed: %v", err)
+		t.Fatalf("marchallList(): %v", err)
 	}
 	return data
 }

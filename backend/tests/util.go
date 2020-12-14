@@ -36,10 +36,10 @@ $func$;
 func PrepareDB(t *testing.T) *sql.DB {
 	db, err := database.Open()
 	if err != nil {
-		t.Fatalf("PrepareDB: db.Open() failed: %v", err)
+		t.Fatalf("PrepareDB: db.Open(): %v", err)
 	}
 	if err := db.Ping(); err != nil {
-		t.Fatalf("PrepareDB: db.Ping() failed: %v", err)
+		t.Fatalf("PrepareDB: db.Ping(): %v", err)
 	}
 
 	dbMigrateAndTruncate(t, db)
@@ -48,10 +48,10 @@ func PrepareDB(t *testing.T) *sql.DB {
 
 func dbMigrateAndTruncate(t *testing.T, db *sql.DB) {
 	if err := goose.Run("up", db, migrationsDir); err != nil {
-		t.Fatalf("PrepareDB: failed to migrate: %v", err)
+		t.Fatalf("PrepareDB: migrate up: %v", err)
 	}
 	if _, err := db.Exec(truncateTablesSQL); err != nil {
-		t.Fatalf("PrepareDB: failed to truncate tables: %v", err)
+		t.Fatalf("PrepareDB: truncate tables: %v", err)
 	}
 }
 
@@ -78,12 +78,12 @@ func CreateUser(
 	usr.SetActive(isActive)
 	if pwd != "" {
 		if err := usr.SetPassword(pwd); err != nil {
-			t.Fatalf("CreateUser: usr.SetPassword() failed: %v", err)
+			t.Fatalf("CreateUser: usr.SetPassword(): %v", err)
 		}
 	}
 	usr, err := repo.CreateUser(context.Background(), usr)
 	if err != nil {
-		t.Fatalf("CreateUser: repo.CreateUser() failed: %v", err)
+		t.Fatalf("CreateUser: repo.CreateUser(): %v", err)
 	}
 	return usr
 }

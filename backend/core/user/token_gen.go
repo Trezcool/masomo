@@ -19,7 +19,7 @@ import (
 
 var (
 	salt    = []byte("masomo.backend.core.user.token_gen")
-	NowFunc = time.Now // for test mock
+	NowFunc = time.Now // mockable
 
 	// errors
 	errInvalidToken = errors.New("invalid token")

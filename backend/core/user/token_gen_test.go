@@ -25,7 +25,7 @@ func TestMakeVerifyToken(t *testing.T) {
 
 	validToken, err := MakeToken(usr)
 	if err != nil {
-		t.Fatalf("MakeToken() failed, %v", err)
+		t.Fatalf("MakeToken(): %v", err)
 	}
 
 	// generate an expired token
@@ -33,7 +33,7 @@ func TestMakeVerifyToken(t *testing.T) {
 	NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := MakeToken(usr)
 	if err != nil {
-		t.Fatalf("MakeToken() failed, %v", err)
+		t.Fatalf("MakeToken(): %v", err)
 	}
 	NowFunc = time.Now // reset
 
