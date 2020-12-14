@@ -23,13 +23,15 @@ import (
 )
 
 func Test_userApi_userQuery(t *testing.T) {
-	t.Skip("CI failing... :( skip for now.. will address later..")
 	app := setup(t)
 
-	path := func(search string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
+	path := func(search, ordering string, createdFrom, createdTo time.Time, isActive *bool, roles ...string) string {
 		v := make(url.Values)
 		if search != "" {
 			v.Add("search", search)
+		}
+		if ordering != "" {
+			v.Add("ordering", ordering)
 		}
 		if isActive != nil {
 			v.Add("is_active", strconv.FormatBool(*isActive))
@@ -43,7 +45,7 @@ func Test_userApi_userQuery(t *testing.T) {
 		for _, r := range roles {
 			v.Add("role", r)
 		}
-		return "/v1/users?" + v.Encode()
+		return "/api/users?" + v.Encode()
 	}
 	bPtr := func(b bool) *bool { return &b }
 
@@ -66,56 +68,74 @@ func Test_userApi_userQuery(t *testing.T) {
 	empty := marchallList(t, []interface{}{}...)
 
 	tests := []httpTest{
-		{name: "Auth required", path: "/v1/users", wantCode: http.StatusUnauthorized, wantData: marchallObj(t, errMissingToken)},
+		{name: "Auth required", path: "/api/users", wantCode: http.StatusUnauthorized, wantData: marchallObj(t, errMissingToken)},
 		{
-			name: "Admin required", path: "/v1/users", token: getToken(t, student), wantCode: http.StatusForbidden,
+			name: "Admin required", path: "/api/users", token: getToken(t, student), wantCode: http.StatusForbidden,
 			wantData: marchallObj(t, httpErr{Error: "permission denied"}),
 		},
 		{
-			name: "Get all", path: "/v1/users", token: adminToken,
-			wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher, naughty),
+			name: "Get all", path: "/api/users", token: adminToken,
+			wantData: marchallList(t, teacher, admin, usr1, naughty, principal, student, usr2),
 		},
-		{name: "search (unknown)", path: path("lol", time.Time{}, time.Time{}, nil), token: adminToken, wantData: empty},
+		// filtering
+		{name: "search (unknown)", path: path("lol", "", time.Time{}, time.Time{}, nil), token: adminToken, wantData: empty},
 		{
-			name: "search=USE", path: path("USE", time.Time{}, time.Time{}, nil),
-			token: adminToken, wantData: marchallList(t, usr1, usr2, student),
+			name: "search=USE", path: path("USE", "", time.Time{}, time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, usr1, student, usr2),
 		},
-		{name: "role (unknown)", path: path("", time.Time{}, time.Time{}, nil, "lol"), token: adminToken, wantData: empty},
+		{name: "role (unknown)", path: path("", "", time.Time{}, time.Time{}, nil, "lol"), token: adminToken, wantData: empty},
 		{
-			name: "role=admin:", path: path("", time.Time{}, time.Time{}, nil, user.RoleAdmin),
+			name: "role=admin:", path: path("", "", time.Time{}, time.Time{}, nil, user.RoleAdmin),
 			token: adminToken, wantData: marchallList(t, admin, principal),
 		},
 		{
-			name: "role=teacher:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher),
+			name: "role=teacher:", path: path("", "", time.Time{}, time.Time{}, nil, user.RoleTeacher),
 			token: adminToken, wantData: marchallList(t, teacher),
 		},
 		{
-			name: "role=teacher:,student:", path: path("", time.Time{}, time.Time{}, nil, user.RoleTeacher, user.RoleStudent),
-			token: adminToken, wantData: marchallList(t, teacher, student, naughty),
+			name: "role=teacher:,student:", path: path("", "", time.Time{}, time.Time{}, nil, user.RoleTeacher, user.RoleStudent),
+			token: adminToken, wantData: marchallList(t, teacher, naughty, student),
 		},
 		{
-			name: "is_active=true", path: path("", time.Time{}, time.Time{}, bPtr(true)),
-			token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, teacher),
+			name: "is_active=true", path: path("", "", time.Time{}, time.Time{}, bPtr(true)),
+			token: adminToken, wantData: marchallList(t, teacher, admin, usr1, principal, student, usr2),
 		},
-		{name: "is_active=false", path: path("", time.Time{}, time.Time{}, bPtr(false)), token: adminToken, wantData: marchallList(t, naughty)},
+		{name: "is_active=false", path: path("", "", time.Time{}, time.Time{}, bPtr(false)), token: adminToken, wantData: marchallList(t, naughty)},
 		{
-			name: "created_from (UTC)", path: path("", t1.UTC(), time.Time{}, nil),
-			token: adminToken, wantData: marchallList(t, usr1, admin, teacher),
-		},
-		{
-			name: "created_from (curr TZ)", path: path("", t1, time.Time{}, nil),
-			token: adminToken, wantData: marchallList(t, usr1, admin, teacher),
+			name: "created_from (UTC)", path: path("", "", t1.UTC(), time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, teacher, admin, usr1),
 		},
 		{
-			name: "created_to (curr TZ)", path: path("", time.Time{}, t2, nil),
-			token: adminToken, wantData: marchallList(t, usr1, usr2, student, admin, principal, naughty),
+			name: "created_from (curr TZ)", path: path("", "", t1, time.Time{}, nil),
+			token: adminToken, wantData: marchallList(t, teacher, admin, usr1),
 		},
-		{name: "created_from - created_to (empty)", path: path("", t4, t5, nil), token: adminToken, wantData: empty},
-		{name: "created_from - created_to (found)", path: path("", t1, t2, nil), token: adminToken, wantData: marchallList(t, usr1, admin)},
-		{name: "all combo (empty)", path: path("USE", t1, t5, bPtr(true), user.RoleAdminPrincipal), token: adminToken, wantData: empty},
 		{
-			name: "all combo (found)", path: path("tea", t1, t5, bPtr(true), user.RoleTeacher),
+			name: "created_to (curr TZ)", path: path("", "", time.Time{}, t2, nil),
+			token: adminToken, wantData: marchallList(t, admin, usr1, naughty, principal, student, usr2),
+		},
+		{name: "created_from - created_to (empty)", path: path("", "", t4, t5, nil), token: adminToken, wantData: empty},
+		{name: "created_from - created_to (found)", path: path("", "", t1, t2, nil), token: adminToken, wantData: marchallList(t, admin, usr1)},
+		{name: "all combo (empty)", path: path("USE", "", t1, t5, bPtr(true), user.RoleAdminPrincipal), token: adminToken, wantData: empty},
+		{
+			name: "all combo (found)", path: path("tea", "", t1, t5, bPtr(true), user.RoleTeacher),
 			token: adminToken, wantData: marchallList(t, teacher),
+		},
+		// ordering
+		{
+			name: "order by created_at", path: path("", "created_at", time.Time{}, time.Time{}, nil), token: adminToken,
+			wantData: marchallList(t, usr2, student, principal, naughty, usr1, admin, teacher),
+		},
+		{
+			name: "order by -created_at", path: path("", "-created_at", time.Time{}, time.Time{}, nil), token: adminToken,
+			wantData: marchallList(t, teacher, admin, usr1, naughty, principal, student, usr2),
+		},
+		{
+			name: "order by is_active,-name", path: path("", "is_active,-name", time.Time{}, time.Time{}, nil), token: adminToken,
+			wantData: marchallList(t, naughty, usr1, teacher, principal, usr2, student, admin),
+		},
+		{
+			name: "order by -is_active,name", path: path("", "-is_active,name", time.Time{}, time.Time{}, nil), token: adminToken,
+			wantData: marchallList(t, admin, student, usr2, principal, teacher, usr1, naughty),
 		},
 	}
 	for _, tt := range tests {
@@ -166,7 +186,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodPost
-		tt.path = "/v1/users/token-refresh"
+		tt.path = "/api/users/token-refresh"
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
@@ -224,7 +244,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodPost
-		tt.path = "/v1/users/password-reset"
+		tt.path = "/api/users/password-reset"
 
 		t.Run(tt.name, func(t *testing.T) {
 			emailsvc.SentMessages = nil // reset
@@ -347,7 +367,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.method = http.MethodPost
-		tt.path = "/v1/users/password-reset-confirm"
+		tt.path = "/api/users/password-reset-confirm"
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newRequest(tt.method, tt.path, tt.body)

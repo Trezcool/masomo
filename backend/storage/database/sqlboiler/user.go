@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
@@ -115,7 +116,7 @@ func (repo userRepository) CreateUser(ctx context.Context, usr user.User, exec .
 	return repo.unboil(u), nil
 }
 
-func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFilter, exec ...core.DBExecutor) ([]user.User, error) {
+func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]user.User, error) {
 	var mods []qm.QueryMod
 
 	if filter != nil {
@@ -148,6 +149,14 @@ func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFil
 		if !filter.CreatedTo.IsZero() {
 			mods = append(mods, models.UserWhere.CreatedAt.LTE(null.TimeFrom(filter.CreatedTo.UTC())))
 		}
+	}
+
+	if ordering != nil {
+		orderList := make([]string, 0, len(ordering))
+		for _, ord := range ordering {
+			orderList = append(orderList, ord.String())
+		}
+		mods = append(mods, qm.OrderBy(strings.Join(orderList, ", ")))
 	}
 
 	users, err := models.Users(mods...).All(ctx, repo.getExec(exec))

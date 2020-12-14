@@ -134,8 +134,7 @@ func Test_commandLine_resetPassword(t *testing.T) {
 		}
 
 		t.Run(tt.name, func(t *testing.T) {
-			err := cli.run(args)
-			if err == nil {
+			if err := cli.run(args); err == nil {
 				refreshedUsr, err := usrRepo.GetUser(context.Background(), user.GetFilter{ID: usr.ID})
 				if err != nil {
 					t.Fatalf("GetUserByID() failed, %v", err)

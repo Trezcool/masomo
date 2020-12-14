@@ -8,7 +8,7 @@ import (
 
 func (cli *commandLine) addUser(uname, email, pwd string, isAdmin bool) error {
 	ctx := context.Background()
-	if err := cli.usrRepo.CheckUsernameUniqueness(ctx, uname, email, nil); err != nil {
+	if err := cli.usrRepo.CheckUsernameUniqueness(ctx, uname, email, nil /* excludedUsers */); err != nil {
 		return err
 	}
 	usr := user.User{

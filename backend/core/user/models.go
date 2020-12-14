@@ -206,10 +206,6 @@ type QueryFilter struct {
 	CreatedTo   time.Time `query:"created_to"`
 }
 
-func (qf *QueryFilter) IsEmpty() bool {
-	return qf.Search == "" && qf.Roles == nil && qf.IsActive == nil && qf.CreatedFrom.IsZero() && qf.CreatedTo.IsZero()
-}
-
 func (qf *QueryFilter) Clean() {
 	qf.Search = core.CleanString(qf.Search)
 }

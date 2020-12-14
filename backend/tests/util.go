@@ -42,22 +42,10 @@ func PrepareDB(t *testing.T) *sql.DB {
 		t.Fatalf("PrepareDB: db.Ping() failed: %v", err)
 	}
 
-	//dbResetMigrations(t, db)
 	dbMigrateAndTruncate(t, db)
 	return db
 }
 
-// nolint
-// expensive...
-func dbResetMigrations(t *testing.T, db *sql.DB) {
-	for _, cmd := range []string{"reset", "up"} {
-		if err := goose.Run(cmd, db, migrationsDir); err != nil {
-			t.Fatalf("PrepareDB: migrate \"%s\" failed: %v", cmd, err)
-		}
-	}
-}
-
-// better..
 func dbMigrateAndTruncate(t *testing.T, db *sql.DB) {
 	if err := goose.Run("up", db, migrationsDir); err != nil {
 		t.Fatalf("PrepareDB: failed to migrate: %v", err)

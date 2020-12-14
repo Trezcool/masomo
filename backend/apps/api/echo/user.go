@@ -132,24 +132,15 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 }
 
 func (api *userApi) userQuery(ctx echo.Context) error {
-	var query user.QueryFilter
-	if err := ctx.Bind(&query); err != nil {
+	filter := new(user.QueryFilter)
+	if err := ctx.Bind(filter); err != nil {
 		return ctx.JSON(http.StatusOK, []user.User{})
 	}
-	query.Clean()
+	filter.Clean()
+	ordering := new(Ordering)
+	ordering.Bind(ctx)
 
-	if query.IsEmpty() {
-		users, err := api.svc.QueryAll()
-		if err != nil {
-			return err
-		}
-		if users == nil {
-			users = []user.User{}
-		}
-		return ctx.JSON(http.StatusOK, users)
-	}
-
-	users, err := api.svc.Filter(query)
+	users, err := api.svc.Query(filter, ordering.Orderings)
 	if err != nil {
 		return err
 	}

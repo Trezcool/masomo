@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	. "github.com/trezcool/masomo/apps/api/echo"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/services/email"
@@ -30,7 +28,7 @@ func setup(t *testing.T) Server {
 
 	// set up services
 	mailSvc := emailsvc.NewConsoleServiceMock()
-	usrSvc := user.NewServiceMock(usrRepo, mailSvc)
+	usrSvc := user.NewServiceMock(db, usrRepo, mailSvc)
 
 	// set up server
 	return NewServer(
@@ -99,7 +97,7 @@ func marchallList(t *testing.T, objs ...interface{}) []byte {
 	return data
 }
 
-func jsonBytesEqual(t *testing.T, b1, b2 []byte) (bool, error) {
+func jsonBytesEqual(b1, b2 []byte) (bool, error) {
 	var j1, j2 interface{}
 	if err := json.Unmarshal(b1, &j1); err != nil {
 		return false, err
@@ -110,17 +108,14 @@ func jsonBytesEqual(t *testing.T, b1, b2 []byte) (bool, error) {
 	if reflect.DeepEqual(j1, j2) {
 		return true, nil
 	}
-	if j1 == nil || j2 == nil {
-		return false, nil
-	}
-	return assert.ElementsMatch(t, j1, j2), nil
+	return false, nil
 }
 
 func checkCodeAndData(t *testing.T, tt httpTest, rec *httptest.ResponseRecorder) {
 	if rec.Code != tt.wantCode {
 		t.Errorf("failed! code = %v; wantCode %v", rec.Code, tt.wantCode)
 	}
-	ok, err := jsonBytesEqual(t, rec.Body.Bytes(), tt.wantData)
+	ok, err := jsonBytesEqual(rec.Body.Bytes(), tt.wantData)
 	if err != nil {
 		t.Errorf("jsonBytesEqual() failed to compare; err %v", err)
 	}

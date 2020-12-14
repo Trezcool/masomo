@@ -8,11 +8,13 @@ type serviceMock struct {
 	service
 }
 
-func NewServiceMock(repo Repository, mailSvc core.EmailService) Service {
+func NewServiceMock(db core.DB, repo Repository, mailSvc core.EmailService) Service {
 	return &serviceMock{
 		service: service{
-			repo:    repo,
-			mailSvc: mailSvc,
+			db:       db,
+			repo:     repo,
+			mailSvc:  mailSvc,
+			ordering: []core.DBOrdering{{Field: "created_at"}},
 		},
 	}
 }

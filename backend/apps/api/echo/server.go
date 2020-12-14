@@ -60,10 +60,10 @@ func (s *server) setup() {
 	// "/.well-known/metrics"
 	s.app.GET("/", home)
 
-	v1 := s.app.Group("/v1")
+	grp := s.app.Group("/api")
 	jwt := middleware.JWTWithConfig(appJWTConfig)
 
-	registerUserAPI(v1, jwt, s.opts.UserSvc)
+	registerUserAPI(grp, jwt, s.opts.UserSvc)
 
 	// TODO: swagger !!
 }

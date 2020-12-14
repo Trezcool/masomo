@@ -24,7 +24,7 @@ type (
 		CreateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
 		// QueryUsers returns all Users or filters them by applying AND operation on available QueryFilter fields.
 		// QueryFilter.Search does a case-insensitive match on one of User.Name, User.Username or User.Email.
-		QueryUsers(ctx context.Context, filter *QueryFilter, exec ...core.DBExecutor) ([]User, error)
+		QueryUsers(ctx context.Context, filter *QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]User, error)
 		GetUser(ctx context.Context, filter GetFilter, exec ...core.DBExecutor) (User, error)
 		UpdateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
 		DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error)
@@ -33,12 +33,11 @@ type (
 	Service interface {
 		CheckUniqueness(uname, email string, exclUsers ...User) error
 		Create(nu NewUser) (User, error)
-		QueryAll() ([]User, error)
+		Query(filter *QueryFilter, ordering []core.DBOrdering) ([]User, error)
 		GetByID(id string) (User, error)
 		GetByUsername(uname string) (User, error)
 		GetByEmail(email string) (User, error)
 		GetByUsernameOrEmail(uname string) (User, error)
-		Filter(filter QueryFilter) ([]User, error)
 		Update(id string, uu UpdateUser) (User, error)
 		SetLastLogin(usr User) (User, error)
 		RequestPasswordReset(email string) error
@@ -47,21 +46,22 @@ type (
 	}
 
 	service struct {
-		db      core.DB
-		repo    Repository
-		mailSvc core.EmailService
+		db       core.DB
+		repo     Repository
+		mailSvc  core.EmailService
+		ordering []core.DBOrdering // default
 		//log *log.Logger
 	}
 )
 
 var _ Service = (*service)(nil)
 
-// todo: default ordering !!! "name" | "-name"
 func NewService(db core.DB, repo Repository, mailSvc core.EmailService) Service {
 	return &service{
-		db:      db,
-		repo:    repo,
-		mailSvc: mailSvc,
+		db:       db,
+		repo:     repo,
+		mailSvc:  mailSvc,
+		ordering: []core.DBOrdering{{Field: "created_at"}},
 	}
 }
 
@@ -89,8 +89,11 @@ func (svc *service) Create(nu NewUser) (User, error) {
 	return svc.repo.CreateUser(context.Background(), usr)
 }
 
-func (svc *service) QueryAll() ([]User, error) {
-	return svc.repo.QueryUsers(context.Background(), nil /* filter */)
+func (svc *service) Query(filter *QueryFilter, ordering []core.DBOrdering) ([]User, error) {
+	if len(ordering) == 0 {
+		ordering = svc.ordering
+	}
+	return svc.repo.QueryUsers(context.Background(), filter, ordering)
 }
 
 func (svc *service) GetByID(id string) (User, error) {
@@ -107,10 +110,6 @@ func (svc *service) GetByEmail(email string) (User, error) {
 
 func (svc *service) GetByUsernameOrEmail(uname string) (User, error) {
 	return svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: core.CleanString(uname, true /* lower */)})
-}
-
-func (svc *service) Filter(filter QueryFilter) ([]User, error) {
-	return svc.repo.QueryUsers(context.Background(), &filter)
 }
 
 func (svc *service) Update(id string, uu UpdateUser) (User, error) {
