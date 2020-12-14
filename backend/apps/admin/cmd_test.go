@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/trezcool/masomo/core/user"
-	"github.com/trezcool/masomo/storage/database"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 	"github.com/trezcool/masomo/tests"
 )
@@ -25,15 +24,7 @@ func TestMain(m *testing.M) {
 	var err error
 
 	// set up DB & repos
-	db, err = database.Open()
-	if err != nil {
-		fmt.Printf("database.Open(): %v", err)
-		os.Exit(1)
-	}
-	if err = db.Ping(); err != nil {
-		fmt.Printf("db.Ping(): %v", err)
-		os.Exit(1)
-	}
+	db = testutil.OpenDB()
 	usrRepo = boiledrepos.NewUserRepository(db)
 
 	// set up CLI

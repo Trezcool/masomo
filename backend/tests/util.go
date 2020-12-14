@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -17,8 +18,8 @@ import (
 )
 
 var (
-	migrationsDir = filepath.Join(core.Conf.WorkDir, "storage", "database", "migrations")
-
+	testDBRegex       = regexp.MustCompile("(?i)test")
+	migrationsDir     = filepath.Join(core.Conf.WorkDir, "storage", "database", "migrations")
 	truncateTablesSQL = `
 DO
 $func$
@@ -45,6 +46,17 @@ func OpenDB() *sql.DB {
 		fmt.Printf("db.Ping(): %v", err)
 		os.Exit(1)
 	}
+
+	// ensure db is a test DB
+	var dbName string
+	if err = db.QueryRow("SELECT current_database()").Scan(&dbName); err != nil {
+		fmt.Printf("\"SELECT current_database()\": %v", err)
+		os.Exit(1)
+	}
+	if !testDBRegex.MatchString(dbName) {
+		fmt.Printf("%s is not a test DB", dbName)
+		os.Exit(1)
+	}
 	return db
 }
 
@@ -53,7 +65,6 @@ func ResetDB(t *testing.T, db *sql.DB) {
 	if err := goose.Run("up", db, migrationsDir); err != nil {
 		t.Fatalf("ResetDB: migrate up: %v", err)
 	}
-
 	// truncate
 	if _, err := db.Exec(truncateTablesSQL); err != nil {
 		t.Fatalf("ResetDB: truncate tables: %v", err)
