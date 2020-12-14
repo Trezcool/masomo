@@ -3,6 +3,8 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/storage/database"
 )
 
 var (
@@ -32,6 +35,19 @@ $func$;
 `
 )
 
+func OpenDB() *sql.DB {
+	db, err := database.Open()
+	if err != nil {
+		fmt.Printf("OpenDB: %v", err)
+		os.Exit(1)
+	}
+	if err = db.Ping(); err != nil {
+		fmt.Printf("db.Ping(): %v", err)
+		os.Exit(1)
+	}
+	return db
+}
+
 func ResetDB(t *testing.T, db *sql.DB) {
 	// migrate
 	if err := goose.Run("up", db, migrationsDir); err != nil {
@@ -52,9 +68,9 @@ func CreateUser(
 	isActive bool,
 	createdAt ...time.Time,
 ) user.User {
-	tstamp := time.Now().UTC()
+	tstamp := time.Now().UTC().Truncate(time.Microsecond)
 	if len(createdAt) > 0 {
-		tstamp = createdAt[0].UTC()
+		tstamp = createdAt[0].UTC().Truncate(time.Microsecond)
 	}
 	usr := user.User{
 		Name:      name,

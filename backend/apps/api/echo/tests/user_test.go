@@ -49,7 +49,7 @@ func Test_userApi_userQuery(t *testing.T) {
 	}
 	bPtr := func(b bool) *bool { return &b }
 
-	now := time.Now().Truncate(time.Microsecond)
+	now := time.Now()
 	t1 := now.Add(1 * time.Hour)
 	t2 := now.Add(2 * time.Hour)
 	t3 := now.Add(3 * time.Hour)
