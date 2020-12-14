@@ -17,9 +17,9 @@ func main() {
 
 	// set up DB
 	db, err := database.Open()
-	errAndDie(err)
+	errAndDie(err, "database.Open(): %v")
 	defer db.Close()
-	errAndDie(db.Ping())
+	errAndDie(db.Ping(), "db.Ping(): %v")
 
 	// start CLI
 	cli := commandLine{
@@ -34,8 +34,8 @@ func main() {
 	}
 }
 
-func errAndDie(err error) {
+func errAndDie(err error, msg string) {
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal(msg, err)
 	}
 }

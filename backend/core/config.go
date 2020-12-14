@@ -2,6 +2,8 @@ package core
 
 import (
 	"log"
+	"net"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,13 +22,13 @@ type (
 		AppName                   string
 		WorkDir                   string
 		SecretKey                 string
-		DefaultFromEmail          string
+		DefaultFromEmail          mail.Address
 		SendgridApiKey            string
 		FrontendBaseURL           string
-		JWTExpirationDelta        time.Duration
-		JWTRefreshExpirationDelta time.Duration
 		PasswordResetTimeoutDelta time.Duration
 		Database                  dbConf
+		Server                    srvConf
+		// Version // git version todo
 	}
 
 	dbConf struct {
@@ -36,6 +38,13 @@ type (
 		Password   string
 		Host       string
 		DisableTLS bool
+	}
+
+	srvConf struct {
+		Host                      string
+		ShutdownTimeout           time.Duration
+		JWTExpirationDelta        time.Duration
+		JWTRefreshExpirationDelta time.Duration
 	}
 )
 
@@ -68,8 +77,8 @@ func init() {
 	v.SetDefault("debug", true)
 	v.SetDefault("appName", appName)
 	v.SetDefault("secretKey", "poq5-wer)enb$+57=dz&uoxh2(h!x)#*c2(#yg4h^$cegm2emy")
-	v.SetDefault("serverName", "localhost")
 	v.SetDefault("frontendBaseURL", "http://localhost:8080")
+	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
 
 	v.SetDefault("dbEngine", "postgres")
 	v.SetDefault("dbName", strings.ToLower(appName))
@@ -77,9 +86,10 @@ func init() {
 	v.SetDefault("dbPort", "5432")
 	v.SetDefault("dbDisableTLS", true)
 
-	v.SetDefault("jwtExpirationDelta", 7*24*time.Hour)
-	v.SetDefault("jwtRefreshExpirationDelta", 4*time.Hour)
-	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
+	v.SetDefault("srvHost", "localhost")
+	v.SetDefault("srvShutdownTimeout", 5*time.Second)
+	v.SetDefault("srvJwtExpirationDelta", 7*24*time.Hour)
+	v.SetDefault("srvJwtRefreshExpirationDelta", 4*time.Hour)
 	// -------------------------------------------------------------------
 
 	// check env vars and override defaults
@@ -95,19 +105,26 @@ func setConfig(v *viper.Viper) {
 		AppName:                   v.GetString("appName"),
 		WorkDir:                   v.GetString("workDir"),
 		SecretKey:                 v.GetString("secretKey"),
-		DefaultFromEmail:          "noreply@" + v.GetString("serverName"),
 		SendgridApiKey:            v.GetString("sendgridApiKey"),
 		FrontendBaseURL:           v.GetString("frontendBaseURL"),
-		JWTExpirationDelta:        v.GetDuration("jwtExpirationDelta"),
-		JWTRefreshExpirationDelta: v.GetDuration("jwtRefreshExpirationDelta"),
 		PasswordResetTimeoutDelta: v.GetDuration("passwordResetTimeoutDelta"),
+		DefaultFromEmail: mail.Address{
+			Name:    v.GetString("appName"),
+			Address: "noreply@" + v.GetString("serverHost"),
+		},
 		Database: dbConf{
 			Engine:     v.GetString("dbEngine"),
 			Name:       v.GetString("dbName"),
 			User:       v.GetString("dbUser"),
 			Password:   v.GetString("dbPassword"),
-			Host:       v.GetString("dbHost") + ":" + v.GetString("dbPort"),
+			Host:       net.JoinHostPort(v.GetString("dbHost"), v.GetString("dbPort")),
 			DisableTLS: v.GetBool("dbDisableTLS"),
+		},
+		Server: srvConf{
+			Host:                      v.GetString("srvHost"),
+			ShutdownTimeout:           v.GetDuration("srvShutdownTimeout"),
+			JWTExpirationDelta:        v.GetDuration("srvJwtExpirationDelta"),
+			JWTRefreshExpirationDelta: v.GetDuration("srvJwtRefreshExpirationDelta"),
 		},
 	}
 }

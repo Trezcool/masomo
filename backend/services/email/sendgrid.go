@@ -27,7 +27,7 @@ var _ core.EmailService = (*sendgridService)(nil)
 func NewSendgridService() core.EmailService {
 	return &sendgridService{
 		key:        core.Conf.SendgridApiKey,
-		from:       sgmail.NewEmail(core.Conf.AppName, core.Conf.DefaultFromEmail),
+		from:       sgmail.NewEmail(core.Conf.DefaultFromEmail.Name, core.Conf.DefaultFromEmail.Address),
 		subjPrefix: "[" + core.Conf.AppName + "] ",
 	}
 }

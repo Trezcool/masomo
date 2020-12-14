@@ -20,8 +20,9 @@ type (
 
 	Server interface {
 		http.Handler
-		Start()
-		Stop(context.Context) error
+		Start() error
+		Shutdown(ctx context.Context) error
+		Close() error
 	}
 
 	server struct {
@@ -68,12 +69,16 @@ func (s *server) setup() {
 	// TODO: swagger !!
 }
 
-func (s *server) Start() {
-	s.app.Logger.Fatal(s.app.Start(s.opts.Addr))
+func (s *server) Start() error {
+	return s.app.Start(s.opts.Addr)
 }
 
-func (s *server) Stop(ctx context.Context) error {
+func (s *server) Shutdown(ctx context.Context) error {
 	return s.app.Shutdown(ctx)
+}
+
+func (s *server) Close() error {
+	return s.app.Close()
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) { // for tests

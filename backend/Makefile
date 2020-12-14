@@ -32,6 +32,15 @@ test: lint
 	ENV=TEST go test -p 1 -timeout 2m -race -v ./...
 
 # ==============================================================================
+# Build
+
+buildapi:
+	go build github.com/trezcool/masomo/apps/api
+
+buildadmin:
+	go build github.com/trezcool/masomo/apps/admin
+
+# ==============================================================================
 # SQLBoiler models generation
 
 boil:

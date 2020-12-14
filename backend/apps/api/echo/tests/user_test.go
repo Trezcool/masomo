@@ -169,10 +169,10 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 			Issuer:    "Masomo",
 			Subject:   student.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(core.Conf.JWTExpirationDelta).Unix(),
+			ExpiresAt: now.Add(core.Conf.Server.JWTExpirationDelta).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OrigIssuedAt: now.Add(-2 * core.Conf.JWTRefreshExpirationDelta).Unix(), // older than threshold
+		OrigIssuedAt: now.Add(-2 * core.Conf.Server.JWTRefreshExpirationDelta).Unix(), // older than threshold
 		IsStudent:    student.IsStudent(),
 		IsTeacher:    student.IsTeacher(),
 		IsAdmin:      student.IsAdmin(),

@@ -28,7 +28,7 @@ var _ core.EmailService = (*consoleService)(nil)
 
 func NewConsoleService() core.EmailService {
 	return &consoleService{
-		defaultFromEmail: mail.Address{Name: core.Conf.AppName, Address: core.Conf.DefaultFromEmail},
+		defaultFromEmail: core.Conf.DefaultFromEmail,
 		subjPrefix:       "[" + core.Conf.AppName + "] ",
 	}
 }
@@ -132,7 +132,7 @@ type consoleServiceMock struct {
 func NewConsoleServiceMock() core.EmailService {
 	return &consoleServiceMock{
 		consoleService: consoleService{
-			defaultFromEmail: mail.Address{Name: core.Conf.AppName, Address: core.Conf.DefaultFromEmail},
+			defaultFromEmail: core.Conf.DefaultFromEmail,
 			subjPrefix:       "[" + core.Conf.AppName + "] ",
 			disableOutput:    true,
 		},
