@@ -7,6 +7,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/pkg/errors"
 
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
@@ -69,7 +70,7 @@ func authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
 			}
 			usr, err := svc.SetLastLogin(usr)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "setting lastLogin")
 			}
 			return GetUserClaims(usr), nil
 		}
@@ -84,7 +85,7 @@ func GenerateToken(claims *Claims) (string, error) {
 
 	ss, err := token.SignedString(appJWTConfig.SigningKey)
 	if err != nil {
-		return "", errTokenSigningFailed // todo: wrap err
+		return "", errors.New("signing token")
 	}
 	return ss, nil
 }
@@ -110,13 +111,13 @@ func getContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.Us
 	} else {
 		claims, err = getContextClaims(ctx)
 		if err != nil {
-			return user.User{}, err
+			return user.User{}, errors.Wrap(err, "getting context claims")
 		}
 	}
 
 	usr, err := svc.GetByID(claims.Subject)
 	if err != nil {
-		return user.User{}, err
+		return user.User{}, errors.Wrap(err, "finding user by ID")
 	}
 	ctx.Set(contextUserKey, usr)
 	return usr, nil
@@ -142,12 +143,12 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	claims, err := getContextClaims(ctx)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "getting context claims")
 	}
 
 	usr, err := getContextUser(ctx, svc, claims)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "getting context user")
 	}
 
 	// check if user is still active
@@ -162,5 +163,6 @@ func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	}
 
 	newClaims := GetUserClaims(usr, claims.OrigIssuedAt)
-	return GenerateToken(newClaims)
+	token, err := GenerateToken(newClaims)
+	return token, errors.Wrap(err, "generating token")
 }

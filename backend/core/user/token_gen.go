@@ -7,12 +7,13 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/trezcool/masomo/core"
 )
@@ -42,7 +43,8 @@ func decodeUID(uid string) (string, error) {
 
 // MakeToken generates a password reset token for a given User.
 func MakeToken(usr User) (string, error) {
-	return _makeTokenWithTimestamp(usr, _numDaysSince2001(NowFunc()))
+	token, err := _makeTokenWithTimestamp(usr, _numDaysSince2001(NowFunc()))
+	return token, errors.Wrap(err, "generating token")
 }
 
 // verifyToken checks that a password reset token for a given User is valid.
@@ -69,7 +71,7 @@ func verifyToken(usr User, token string) error {
 	// check that token has not been tampered with
 	newToken, err := _makeTokenWithTimestamp(usr, ts)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "generating token")
 	}
 	if subtle.ConstantTimeCompare([]byte(newToken), []byte(token)) == 0 {
 		return errInvalidToken
@@ -86,7 +88,7 @@ func _makeTokenWithTimestamp(usr User, ts int) (string, error) {
 	tsB32 := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(strconv.Itoa(ts)))
 	sig, err := _sign(_hashValue(usr, ts))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "generating signature")
 	}
 	return fmt.Sprintf("%s-%s", tsB32, sig), nil
 }
@@ -100,7 +102,7 @@ func _sign(val []byte) (string, error) {
 	key := sha256.Sum256(append(salt, core.Conf.SecretKey...))
 	h := hmac.New(sha256.New, key[:])
 	if _, err := h.Write(val); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "hashing")
 	}
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
 }

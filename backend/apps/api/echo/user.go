@@ -1,11 +1,11 @@
 package echoapi
 
 import (
-	"errors"
 	"net/http"
 	"sort"
 
 	"github.com/labstack/echo/v4"
+	"github.com/pkg/errors"
 
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
@@ -53,7 +53,7 @@ func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
 func (api *userApi) userCreate(ctx echo.Context) error {
 	var data user.NewUser
 	if err := ctx.Bind(&data); err != nil {
-		return err
+		return errors.Wrap(err, "binding to NewUser")
 	}
 	if err := data.Validate(api.svc); err != nil {
 		return err
@@ -62,7 +62,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 	// ctxUser cannot set a role > their own max role
 	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getting context user")
 	}
 	if user.MaxRolePriority(data.Roles) > user.MaxRolePriority(ctxUsr.Roles) {
 		return core.NewValidationError(nil, core.FieldError{Field: "roles", Error: errNoPermsToSetRoles})
@@ -70,7 +70,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 
 	usr, err := api.svc.Create(data)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "creating user")
 	}
 
 	return ctx.JSON(http.StatusCreated, usr)
@@ -79,7 +79,7 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 func (api *userApi) userLogin(ctx echo.Context) error {
 	var data LoginRequest
 	if err := ctx.Bind(&data); err != nil {
-		return err
+		return errors.Wrap(err, "binding to LoginRequest")
 	}
 	if err := data.Validate(); err != nil {
 		return err
@@ -87,11 +87,11 @@ func (api *userApi) userLogin(ctx echo.Context) error {
 
 	claims, err := authenticate(data.Username, data.Password, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "authenticating")
 	}
 	token, err := GenerateToken(claims)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "generating token")
 	}
 
 	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
@@ -100,15 +100,15 @@ func (api *userApi) userLogin(ctx echo.Context) error {
 func (api *userApi) userResetPassword(ctx echo.Context) error {
 	var data PasswordResetRequest
 	if err := ctx.Bind(&data); err != nil {
-		return err
+		return errors.Wrap(err, "binding to PasswordResetRequest")
 	}
 	if err := data.Validate(); err != nil {
 		return err
 	}
 
-	if err := api.svc.RequestPasswordReset(data.Email); !(err == nil || err == user.ErrNotFound) {
+	if err := api.svc.RequestPasswordReset(data.Email); !(err == nil || errors.Cause(err) == user.ErrNotFound) {
 		// do not return errors to attackers
-		ctx.Logger().Error(err)
+		ctx.Logger().Errorf("%+v", errors.Wrap(err, "requesting password reset"))
 	}
 	return ctx.JSON(http.StatusOK, SuccessResponse{
 		Success: "If the email address supplied is associated with an active account on this system, " +
@@ -119,14 +119,14 @@ func (api *userApi) userResetPassword(ctx echo.Context) error {
 func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 	var data user.ResetUserPassword
 	if err := ctx.Bind(&data); err != nil {
-		return err
+		return errors.Wrap(err, "binding to ResetUserPassword")
 	}
 	if err := data.Validate(); err != nil {
 		return err
 	}
 
 	if err := api.svc.ResetPassword(data); err != nil {
-		return err
+		return errors.Wrap(err, "resetting password")
 	}
 	return ctx.JSON(http.StatusOK, SuccessResponse{Success: "Password has been reset with the new password."})
 }
@@ -142,7 +142,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 
 	users, err := api.svc.Query(filter, ordering.Orderings)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "querying users")
 	}
 	if users == nil {
 		users = []user.User{}
@@ -153,7 +153,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 func (api *userApi) userRetrieve(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return errUsrNotFoundInCtx
+		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
 	}
 	return ctx.JSON(http.StatusOK, usr)
 }
@@ -161,17 +161,17 @@ func (api *userApi) userRetrieve(ctx echo.Context) error {
 func (api *userApi) userUpdate(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return errUsrNotFoundInCtx
+		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
 	}
 
 	var data user.UpdateUser
 	if err := ctx.Bind(data); err != nil {
-		return err
+		return errors.Wrap(err, "binding to UpdateUser")
 	}
 
 	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getting context user")
 	}
 	if !ctxUsr.IsAdmin() {
 		// user cannot edit other users
@@ -197,7 +197,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 
 	usr, err = api.svc.Update(usr.ID, data)
 	if err != nil {
-		return err
+		return errors.Wrap(errUsrNotFoundInCtx, "updating user")
 	}
 
 	return ctx.JSON(http.StatusOK, usr)
@@ -206,20 +206,20 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 func (api *userApi) userDestroy(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
-		return errUsrNotFoundInCtx
+		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
 	}
 
 	// Say No to Suicide! ctxUser cannot delete themselves
 	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getting context user")
 	}
 	if usr.ID == ctxUsr.ID {
 		return errHttpForbidden
 	}
 
 	if err := api.svc.Delete(usr.ID); err != nil {
-		return err
+		return errors.Wrap(errUsrNotFoundInCtx, "deleting user")
 	}
 	return ctx.NoContent(http.StatusNoContent)
 }
@@ -227,7 +227,7 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	var query DestroyMultipleRequest
 	if err := ctx.Bind(&query); err != nil {
-		return err
+		return errors.Wrap(err, "binding to DestroyMultipleRequest")
 	}
 	if query.IDs == nil {
 		return ctx.NoContent(http.StatusNoContent)
@@ -236,7 +236,7 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	// Say No to Suicide! ctxUser cannot delete themselves
 	ctxUsr, err := getContextUser(ctx, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getting context user")
 	}
 	sort.Strings(query.IDs)
 	if i := sort.SearchStrings(query.IDs, ctxUsr.ID); i < len(query.IDs) {
@@ -246,7 +246,7 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 	}
 
 	if err := api.svc.Delete(query.IDs...); err != nil {
-		return err
+		return errors.Wrap(errUsrNotFoundInCtx, "deleting users")
 	}
 	return ctx.NoContent(http.StatusNoContent)
 }
@@ -258,7 +258,7 @@ func (api *userApi) userQueryRoles(ctx echo.Context) error {
 func (api *userApi) userRefreshToken(ctx echo.Context) error {
 	token, err := refreshToken(ctx, api.svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "refreshing token")
 	}
 	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
@@ -268,16 +268,15 @@ func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
 		return func(ctx echo.Context) error {
 			ctxUsr, err := getContextUser(ctx, svc)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "getting context user")
 			}
 
 			if ctx.Param("id") == ctxUsr.ID || ctxUsr.IsAdmin() {
-				usr, err := svc.GetByID(ctx.Param("id"))
-				if err == nil {
+				if usr, err := svc.GetByID(ctx.Param("id")); err == nil {
 					ctx.Set("object", usr)
 					return next(ctx)
-				} else if err != user.ErrNotFound {
-					return err
+				} else if errors.Cause(err) != user.ErrNotFound {
+					return errors.Wrap(err, "finding user by ID")
 				}
 			}
 			return errHttpNotFound

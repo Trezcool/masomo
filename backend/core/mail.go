@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	htmltmpl "html/template"
 	"io"
 	"log"
@@ -12,14 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	texttmpl "text/template"
+
+	"github.com/pkg/errors"
 )
 
-var (
-	templates tmplCache
-	tmplInit  sync.Once
-)
+var templates = parseTemplates()
 
 type (
 	tmplCacheEntry map[string]interface{}    // {ext: *Template}
@@ -93,7 +90,7 @@ func (m *EmailMessage) renderText() error {
 
 	var buff bytes.Buffer
 	if err := tmpl.Execute(&buff, m.getContextData()); err != nil {
-		return err
+		return errors.Wrap(err, "executing template")
 	}
 	m.TextContent = buff.String()
 	return nil
@@ -115,20 +112,17 @@ func (m *EmailMessage) renderHTML() error {
 
 	var buff bytes.Buffer
 	if err := tmpl.Execute(&buff, m.getContextData()); err != nil {
-		return err
+		return errors.Wrap(err, "executing template")
 	}
 	m.HTMLContent = buff.String()
 	return nil
 }
 
 func (m *EmailMessage) Render() error {
-	if m.TemplateName != "" {
-		tmplInit.Do(parseTemplates) // only execute once during first request
-	}
 	if err := m.renderText(); err != nil {
-		return err
+		return errors.Wrap(err, "rendering text template")
 	}
-	return m.renderHTML()
+	return errors.Wrap(m.renderHTML(), "rendering html template")
 }
 
 func (m *EmailMessage) Attach(r io.Reader, filename string, ct ...string) error {
@@ -137,12 +131,12 @@ func (m *EmailMessage) Attach(r io.Reader, filename string, ct ...string) error 
 	// read content
 	var content []byte
 	if _, err := r.Read(content); err != nil {
-		return err
+		return errors.Wrap(err, "reading content")
 	}
 	// base64 encode content
 	encoder := base64.NewEncoder(base64.StdEncoding, at.Content)
 	if _, err := encoder.Write(content); err != nil {
-		return err
+		return errors.Wrap(err, "encoding content")
 	}
 	encoder.Close()
 
@@ -158,23 +152,23 @@ func (m *EmailMessage) Attach(r io.Reader, filename string, ct ...string) error 
 func (m *EmailMessage) AttachFile(path string, contentType ...string) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "opening file")
 	}
 	defer f.Close()
-	return m.Attach(f, filepath.Base(path), contentType...)
+	return errors.Wrap(m.Attach(f, filepath.Base(path), contentType...), "attaching file")
 }
 
 func (m *EmailMessage) HasRecipients() bool  { return len(m.To) > 0 }
 func (m *EmailMessage) HasContent() bool     { return (m.TextContent != "") || (m.HTMLContent != "") }
 func (m *EmailMessage) HasAttachments() bool { return len(m.Attachments) > 0 }
 
-func parseTemplates() {
-	templates = make(tmplCache)
+func parseTemplates() tmplCache {
+	cache := make(tmplCache)
 
-	rp := filepath.Join(Conf.WorkDir, "assets", "templates", "email")
+	rp := filepath.Join(getwd(), "assets", "templates", "email")
 	fps, err := filepath.Glob(filepath.Join(rp, "*"))
 	if err != nil {
-		log.Print(fmt.Errorf("core.parseTemplates: %v", err)) // todo: LogSvc.Errorf !!!
+		log.Fatalf("%+v", errors.Wrap(err, "globbing"))
 	}
 
 	for _, fp := range fps {
@@ -184,29 +178,24 @@ func parseTemplates() {
 			continue
 		}
 		name := fname[:strings.LastIndex(fname, ".")]
-		entry, ok := templates[name]
+		entry, ok := cache[name]
 		if !ok {
-			templates[name] = make(tmplCacheEntry)
-			entry = templates[name]
+			cache[name] = make(tmplCacheEntry)
+			entry = cache[name]
 		}
 		if ext == ".txt" {
 			tmpl, err := texttmpl.ParseFiles(filepath.Join(rp, "_base.txt"), fp)
 			if err != nil {
-				log.Print(fmt.Errorf("core.parseTemplates: %v", err))
-			}
-			if Conf.Debug || Conf.TestMode {
-				tmpl = tmpl.Option("missingkey=error")
+				log.Fatalf("%+v", errors.Wrap(err, "parsing .txt files"))
 			}
 			entry[ext] = tmpl
 		} else {
 			tmpl, err := htmltmpl.ParseFiles(filepath.Join(rp, "_base.gohtml"), fp)
 			if err != nil {
-				log.Print(fmt.Errorf("core.parseTemplates: %v", err))
-			}
-			if Conf.Debug || Conf.TestMode {
-				tmpl = tmpl.Option("missingkey=error")
+				log.Fatalf("%+v", errors.Wrap(err, "parsing .gohtml files"))
 			}
 			entry[ext] = tmpl
 		}
 	}
+	return cache
 }

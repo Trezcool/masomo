@@ -2,11 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
 	"syscall"
 
+	"github.com/pkg/errors"
 	"golang.org/x/term"
 
 	"github.com/trezcool/masomo/core"

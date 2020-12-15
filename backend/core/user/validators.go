@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/pkg/errors"
 	"github.com/pmezard/go-difflib/difflib"
 
 	"github.com/trezcool/masomo/core"
@@ -68,15 +70,28 @@ func init() {
 func loadCommonPasswords() []string {
 	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
 	pwdAssetPath := filepath.Join(core.Conf.WorkDir, "assets", "common-passwords.txt.gz")
-	if file, err := os.Open(pwdAssetPath); err == nil {
-		defer file.Close()
-		if gzRdr, err := gzip.NewReader(file); err == nil {
-			scanner := bufio.NewScanner(gzRdr)
-			for scanner.Scan() {
-				pwds = append(pwds, strings.TrimSpace(scanner.Text()))
-			}
-		}
+
+	file, err := os.Open(pwdAssetPath)
+	if err != nil {
+		log.Printf("%+v", errors.Wrap(err, "opening "+pwdAssetPath))
+		return nil
 	}
+	defer file.Close()
+
+	gzRdr, err := gzip.NewReader(file)
+	if err != nil {
+		log.Printf("%+v", errors.Wrap(err, "creating gzip reader"))
+		return nil
+	}
+
+	scanner := bufio.NewScanner(gzRdr)
+	for scanner.Scan() {
+		pwds = append(pwds, strings.TrimSpace(scanner.Text()))
+	}
+	if scanner.Err() != nil {
+		log.Printf("%+v", errors.Wrap(err, "scanning "+pwdAssetPath))
+	}
+
 	sort.Strings(pwds)
 	return pwds
 }

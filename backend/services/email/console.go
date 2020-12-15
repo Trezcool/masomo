@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/trezcool/masomo/core"
 )
 
@@ -42,7 +44,7 @@ func (svc consoleService) SendMessages(messages ...*core.EmailMessage) {
 func (svc consoleService) sendMessage(msg *core.EmailMessage) {
 	err := msg.Render()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%+v", errors.Wrap(err, "rendering email"))
 	}
 	if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
 		svc.send(*msg)
@@ -81,20 +83,20 @@ func (svc consoleService) send(msg core.EmailMessage) {
 
 	if mixedW != nil {
 		if _, err := mixedW.CreatePart(textproto.MIMEHeader{"Content-Type": {"multipart/alternative", "boundary=" + altW.Boundary()}}); err != nil {
-			log.Fatal(err)
+			log.Fatalf("%+v", errors.Wrap(err, "creating multipart/alternative part"))
 		}
 	}
 
 	w, err := altW.CreatePart(textproto.MIMEHeader{"Content-Type": {"text/plain"}})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%+v", errors.Wrap(err, "creating text/plain part"))
 	}
 	_, _ = fmt.Fprintf(w, "%s\r\n", msg.TextContent)
 
 	if msg.TemplateName != "" {
 		w, err = altW.CreatePart(textproto.MIMEHeader{"Content-Type": {"text/html"}})
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("%+v", errors.Wrap(err, "creating text/html part"))
 		}
 		_, _ = fmt.Fprintf(w, "%s\r\n", msg.HTMLContent)
 	}
@@ -106,7 +108,7 @@ func (svc consoleService) send(msg core.EmailMessage) {
 				"Content-Transfer-Encoding": {"base64"},
 				"Content-Disposition":       {"attachment; filename=" + at.Filename}})
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("%+v", errors.Wrap(err, "creating "+at.ContentType+" part"))
 			}
 			_, _ = fmt.Fprintf(w, "%s\r\n", at.Content.String())
 		}

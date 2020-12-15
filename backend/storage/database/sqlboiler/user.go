@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -78,11 +79,11 @@ func (repo userRepository) unboilSlice(slice models.UserSlice) []user.User {
 }
 
 // trapNoRowsErr maps psql "no rows" err to user.ErrNotFound
-func (repo userRepository) trapNoRowsErr(err error) error {
+func (repo userRepository) trapNoRowsErr(err error, msg string) error {
 	if err == sql.ErrNoRows {
 		return user.ErrNotFound
 	}
-	return err
+	return errors.Wrap(err, msg)
 }
 
 func (repo userRepository) CheckUsernameUniqueness(ctx context.Context, username, email string, excludedUsers []user.User, exec ...core.DBExecutor) error {
@@ -99,7 +100,7 @@ func (repo userRepository) CheckUsernameUniqueness(ctx context.Context, username
 
 	exists, err := models.Users(mods...).Exists(ctx, repo.getExec(exec))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "checking user uniqueness")
 	}
 	if exists {
 		return user.ErrUserExists
@@ -111,7 +112,7 @@ func (repo userRepository) CreateUser(ctx context.Context, usr user.User, exec .
 	usr.ID = uuid.New().String()
 	u := repo.boil(usr)
 	if err := u.Insert(ctx, repo.getExec(exec), boil.Infer()); err != nil {
-		return user.User{}, err
+		return user.User{}, errors.Wrap(err, "inserting user")
 	}
 	return repo.unboil(u), nil
 }
@@ -161,7 +162,7 @@ func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFil
 
 	users, err := models.Users(mods...).All(ctx, repo.getExec(exec))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "querying users")
 	}
 	return repo.unboilSlice(users), nil
 }
@@ -177,7 +178,7 @@ func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, e
 		}
 		usr, err = models.FindUser(ctx, exe, filter.ID)
 		if err != nil {
-			return user.User{}, repo.trapNoRowsErr(err)
+			return user.User{}, repo.trapNoRowsErr(err, "finding user by ID")
 		}
 	} else {
 		var mod qm.QueryMod
@@ -194,7 +195,7 @@ func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, e
 
 		usr, err = models.Users(mod).One(ctx, exe)
 		if err != nil {
-			return user.User{}, repo.trapNoRowsErr(err)
+			return user.User{}, repo.trapNoRowsErr(err, "finding user")
 		}
 	}
 
@@ -204,7 +205,7 @@ func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, e
 func (repo userRepository) UpdateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
 	u := repo.boil(usr)
 	if _, err := u.Update(ctx, repo.getExec(exec), boil.Infer()); err != nil {
-		return user.User{}, err
+		return user.User{}, errors.Wrap(err, "updating user")
 	}
 	return repo.unboil(u), nil
 }
@@ -212,7 +213,7 @@ func (repo userRepository) UpdateUser(ctx context.Context, usr user.User, exec .
 func (repo userRepository) DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error) {
 	cnt, err := models.Users(models.UserWhere.ID.IN(ids)).DeleteAll(ctx, repo.getExec(exec))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "deleting users")
 	}
 	return int(cnt), nil
 }

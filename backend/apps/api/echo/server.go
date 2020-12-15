@@ -3,6 +3,8 @@ package echoapi
 import (
 	"context"
 	"net/http"
+	"os"
+	"syscall"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -13,30 +15,33 @@ import (
 )
 
 type (
-	Options struct {
-		Addr    string
+	Deps struct {
 		UserSvc user.Service
 	}
 
 	Server interface {
 		http.Handler
 		Start() error
-		Shutdown(ctx context.Context) error
+		Shutdown(context.Context) error
 		Close() error
 	}
 
 	server struct {
-		opts *Options
-		app  *echo.Echo
+		addr     string
+		deps     *Deps
+		app      *echo.Echo
+		shutdown chan<- os.Signal
 	}
 )
 
 var _ Server = (*server)(nil)
 
-func NewServer(opts *Options) Server {
+func NewServer(addr string, shutdown chan<- os.Signal, deps *Deps) Server {
 	s := &server{
-		opts: opts,
-		app:  echo.New(),
+		addr:     addr,
+		deps:     deps,
+		app:      echo.New(),
+		shutdown: shutdown,
 	}
 	s.setup()
 	return s
@@ -53,24 +58,28 @@ func (s *server) setup() {
 		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 	}
 
-	s.app.HTTPErrorHandler = appHTTPErrorHandler
+	s.app.HTTPErrorHandler = newAppHTTPErrorHandler(s.SignalShutdown)
 	s.app.Debug = core.Conf.Debug
 
 	// todo: health endpoints according to RFC 5785
 	// "/.well-known/health-check"
 	// "/.well-known/metrics"
-	s.app.GET("/", home)
+	s.app.GET("/", home) // todo: redirect to "/api" (OpenAPI docs)
 
 	grp := s.app.Group("/api")
 	jwt := middleware.JWTWithConfig(appJWTConfig)
 
-	registerUserAPI(grp, jwt, s.opts.UserSvc)
+	registerUserAPI(grp, jwt, s.deps.UserSvc)
 
 	// TODO: swagger !!
 }
 
 func (s *server) Start() error {
-	return s.app.Start(s.opts.Addr)
+	return s.app.Start(s.addr)
+}
+
+func (s *server) SignalShutdown() {
+	s.shutdown <- syscall.SIGTERM
 }
 
 func (s *server) Shutdown(ctx context.Context) error {
@@ -84,8 +93,6 @@ func (s *server) Close() error {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) { // for tests
 	s.app.ServeHTTP(w, r)
 }
-
-// todo: graceful shutdown
 
 func home(ctx echo.Context) error {
 	return ctx.String(http.StatusOK, "Welcome to Masomo API!")

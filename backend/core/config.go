@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -66,10 +67,10 @@ func init() {
 	dotEnvPath := filepath.Join(wd, "config", ".env."+strings.ToLower(env))
 	if _, err := os.Stat(dotEnvPath); err == nil {
 		if err := godotenv.Load(dotEnvPath); err != nil {
-			log.Fatalf("config.godotenv(%s): %v", dotEnvPath, err)
+			log.Fatalf("%+v", errors.Wrap(err, "loading "+dotEnvPath))
 		}
 	} else if !os.IsNotExist(err) {
-		log.Fatalf("config.os.Stat(%s): %v", dotEnvPath, err)
+		log.Fatalf("%+v", errors.Wrap(err, "checking if "+dotEnvPath+" exists"))
 	}
 
 	// ----------------------------- defaults ----------------------------
@@ -137,7 +138,7 @@ func getwd() string {
 	root := "backend"
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%+v", errors.Wrap(err, "getting working directory"))
 	}
 	currDir := wd
 	for {

@@ -2,11 +2,12 @@ package user
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/mail"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/trezcool/masomo/core"
 )
@@ -70,7 +71,7 @@ func (svc *service) CheckUniqueness(uname, email string, exclUsers ...User) erro
 		if err == ErrUserExists {
 			return core.NewValidationError(err)
 		}
-		return err
+		return errors.Wrap(err, "checking user uniqueness")
 	}
 	return nil
 }
@@ -84,32 +85,38 @@ func (svc *service) Create(nu NewUser) (User, error) {
 	}
 	usr.SetActive(true)
 	if err := usr.SetPassword(nu.Password); err != nil {
-		return User{}, err
+		return User{}, errors.Wrap(err, "hashing password")
 	}
-	return svc.repo.CreateUser(context.Background(), usr)
+	usr, err := svc.repo.CreateUser(context.Background(), usr)
+	return usr, errors.Wrap(err, "creating user")
 }
 
 func (svc *service) Query(filter *QueryFilter, ordering []core.DBOrdering) ([]User, error) {
 	if len(ordering) == 0 {
 		ordering = svc.ordering
 	}
-	return svc.repo.QueryUsers(context.Background(), filter, ordering)
+	usrs, err := svc.repo.QueryUsers(context.Background(), filter, ordering)
+	return usrs, errors.Wrap(err, "querying users")
 }
 
 func (svc *service) GetByID(id string) (User, error) {
-	return svc.repo.GetUser(context.Background(), GetFilter{ID: id})
+	usr, err := svc.repo.GetUser(context.Background(), GetFilter{ID: id})
+	return usr, errors.Wrap(err, "finding user by ID")
 }
 
 func (svc *service) GetByUsername(uname string) (User, error) {
-	return svc.repo.GetUser(context.Background(), GetFilter{Username: core.CleanString(uname, true /* lower */)})
+	usr, err := svc.repo.GetUser(context.Background(), GetFilter{Username: core.CleanString(uname, true /* lower */)})
+	return usr, errors.Wrap(err, "finding user by username")
 }
 
 func (svc *service) GetByEmail(email string) (User, error) {
-	return svc.repo.GetUser(context.Background(), GetFilter{Email: core.CleanString(email, true /* lower */)})
+	usr, err := svc.repo.GetUser(context.Background(), GetFilter{Email: core.CleanString(email, true /* lower */)})
+	return usr, errors.Wrap(err, "finding user by email")
 }
 
 func (svc *service) GetByUsernameOrEmail(uname string) (User, error) {
-	return svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: core.CleanString(uname, true /* lower */)})
+	usr, err := svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: core.CleanString(uname, true /* lower */)})
+	return usr, errors.Wrap(err, "finding user by username or email")
 }
 
 func (svc *service) Update(id string, uu UpdateUser) (User, error) {
@@ -123,21 +130,23 @@ func (svc *service) Update(id string, uu UpdateUser) (User, error) {
 	}
 	if uu.Password != "" {
 		if err := usr.SetPassword(uu.Password); err != nil {
-			return User{}, err
+			return User{}, errors.Wrap(err, "hashing password")
 		}
 	}
-	return svc.repo.UpdateUser(context.Background(), usr)
+	usr, err := svc.repo.UpdateUser(context.Background(), usr)
+	return usr, errors.Wrap(err, "updating user")
 }
 
 func (svc *service) SetLastLogin(usr User) (User, error) {
 	usr.LastLogin = time.Now().UTC()
-	return svc.repo.UpdateUser(context.Background(), usr)
+	usr, err := svc.repo.UpdateUser(context.Background(), usr)
+	return usr, errors.Wrap(err, "setting lastLogin")
 }
 
 func (svc *service) RequestPasswordReset(email string) error {
 	usr, err := svc.GetByEmail(email)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "finding user by email")
 	}
 	// do not wait for it; avoid giving clues to attackers
 	go svc.sendPasswordResetMail(usr)
@@ -169,32 +178,32 @@ func (svc *service) ResetPassword(rp ResetUserPassword) error {
 	}
 	usr, err := svc.GetByID(uid)
 	if err != nil {
-		if err == ErrNotFound {
+		if errors.Cause(err) == ErrNotFound {
 			return core.NewValidationError(err, core.FieldError{Field: "uid", Error: "invalid value"})
 		}
-		return err
+		return errors.Wrap(err, "finding user by ID")
 	}
 	if err := verifyToken(usr, rp.Token); err != nil {
 		switch err {
 		case errInvalidToken, errTokenExpired:
 			return core.NewValidationError(err, core.FieldError{Field: "token", Error: "invalid value"})
 		default:
-			return err
+			return errors.Wrap(err, "verifying token")
 		}
 	}
 
 	if err := usr.SetPassword(rp.Password); err != nil {
-		return err
+		return errors.Wrap(err, "hashing password")
 	}
 	if _, err := svc.repo.UpdateUser(context.Background(), usr); err != nil {
-		return err
+		return errors.Wrap(err, "updating password")
 	}
 	return nil
 }
 
 func (svc *service) Delete(ids ...string) error {
 	if _, err := svc.repo.DeleteUsersByID(context.Background(), ids); err != nil {
-		return err
+		return errors.Wrap(err, "deleting users")
 	}
 	return nil
 }

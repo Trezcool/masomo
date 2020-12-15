@@ -1,9 +1,11 @@
 package emailsvc
 
 import (
+	"log"
 	"net/http"
 	"net/mail"
 
+	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
 	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
@@ -47,7 +49,7 @@ func (svc *sendgridService) SendMessages(messages ...*core.EmailMessage) {
 	}
 }
 
-func (svc *sendgridService) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, error) {
+func (svc *sendgridService) prepare(msg core.EmailMessage) *sgmail.SGMailV3 {
 	p := sgmail.NewPersonalization()
 	p.Subject = svc.subjPrefix + msg.Subject
 
@@ -74,7 +76,7 @@ func (svc *sendgridService) prepare(msg core.EmailMessage) (*sgmail.SGMailV3, er
 		m.AddAttachment(svc.getSGAttachment(a))
 	}
 
-	return m, nil
+	return m
 }
 
 func (svc sendgridService) getSGEmail(addr mail.Address) *sgmail.Email {
@@ -93,15 +95,15 @@ func (svc sendgridService) getSGAttachment(at core.Attachment) *sgmail.Attachmen
 func (svc sendgridService) send(msg core.EmailMessage) {
 	req := sendgrid.GetRequest(svc.key, endpoint, host)
 	req.Method = http.MethodPost
-	m, err := svc.prepare(msg)
-	if err != nil {
-		panic(err) // todo: logger
-	}
-	req.Body = sgmail.GetRequestBody(m)
+	req.Body = sgmail.GetRequestBody(svc.prepare(msg))
 
 	res, err := sendgrid.API(req)
-	if err != nil || res.StatusCode >= http.StatusBadRequest { // todo: retries !!
-		panic(err)
-		// todo webhook to handle failed mails ??
+	if err != nil {
+		log.Printf("%+v", errors.Wrap(err, "sending email"))
+	} else if res.StatusCode >= http.StatusBadRequest {
+		log.Printf("%+v", errors.Errorf("sending email - status: %d - Body: %s", res.StatusCode, res.Body))
 	}
+	// todo: loggerSvc
+	// todo: retries ??
+	// todo webhook to handle failed mails ??
 }
