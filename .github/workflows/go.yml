@@ -57,9 +57,9 @@ jobs:
     - name: Test
       env:
         ENV: TEST
-        TEST_DBNAME: masomotest
-        TEST_DBUSER: masomotest
-        TEST_DBPASSWORD: masomotest
+        TEST_DATABASE.NAME: masomotest
+        TEST_DATABASE.USER: masomotest
+        TEST_DATABASE.PASSWORD: masomotest
       run: go test -p 1 -timeout 2m -coverprofile=coverage.txt -covermode=atomic -v ./...
 
     - name: Upload test coverage
