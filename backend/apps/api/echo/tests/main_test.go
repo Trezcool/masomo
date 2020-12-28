@@ -20,7 +20,7 @@ import (
 
 var (
 	db      *sql.DB
-	app     Server
+	app     *Server
 	usrRepo user.Repository
 
 	errMissingToken = httpErr{Error: "missing or malformed jwt"}

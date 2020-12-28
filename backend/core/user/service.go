@@ -24,7 +24,7 @@ type (
 		CheckUsernameUniqueness(ctx context.Context, username, email string, excludedUsers []User, exec ...core.DBExecutor) error
 		CreateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
 		// QueryUsers returns all Users or filters them by applying AND operation on available QueryFilter fields.
-		// QueryFilter.Search does a case-insensitive match on one of User.Name, User.Username or User.Email.
+		// QueryFilter.Search does a case-insensitive match on any of User.Name, User.Username and User.Email.
 		QueryUsers(ctx context.Context, filter *QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]User, error)
 		GetUser(ctx context.Context, filter GetFilter, exec ...core.DBExecutor) (User, error)
 		UpdateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
@@ -57,7 +57,7 @@ type (
 
 var _ Service = (*service)(nil)
 
-func NewService(db core.DB, repo Repository, mailSvc core.EmailService) Service {
+func NewService(db core.DB, repo Repository, mailSvc core.EmailService) *service {
 	return &service{
 		db:       db,
 		repo:     repo,

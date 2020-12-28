@@ -16,17 +16,11 @@ import (
 
 type (
 	Deps struct {
+		Logger  core.Logger
 		UserSvc user.Service
 	}
 
-	Server interface {
-		http.Handler
-		Start() error
-		Shutdown(context.Context) error
-		Close() error
-	}
-
-	server struct {
+	Server struct {
 		addr     string
 		deps     *Deps
 		app      *echo.Echo
@@ -34,10 +28,8 @@ type (
 	}
 )
 
-var _ Server = (*server)(nil)
-
-func NewServer(addr string, shutdown chan<- os.Signal, deps *Deps) Server {
-	s := &server{
+func NewServer(addr string, shutdown chan<- os.Signal, deps *Deps) *Server {
+	s := &Server{
 		addr:     addr,
 		deps:     deps,
 		app:      echo.New(),
@@ -47,7 +39,7 @@ func NewServer(addr string, shutdown chan<- os.Signal, deps *Deps) Server {
 	return s
 }
 
-func (s *server) setup() {
+func (s *Server) setup() {
 	s.app.Pre(middleware.RemoveTrailingSlash())
 	// do not print request logs in TEST mode
 	if !core.Conf.TestMode {
@@ -58,7 +50,7 @@ func (s *server) setup() {
 		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 	}
 
-	s.app.HTTPErrorHandler = newAppHTTPErrorHandler(s.SignalShutdown)
+	s.app.HTTPErrorHandler = newAppHTTPErrorHandler(s.deps.Logger, s.SignalShutdown)
 	s.app.Debug = core.Conf.Debug
 
 	// todo: health endpoints according to RFC 5785
@@ -74,23 +66,23 @@ func (s *server) setup() {
 	// TODO: swagger !!
 }
 
-func (s *server) Start() error {
+func (s *Server) Start() error {
 	return s.app.Start(s.addr)
 }
 
-func (s *server) SignalShutdown() {
+func (s *Server) SignalShutdown() {
 	s.shutdown <- syscall.SIGTERM
 }
 
-func (s *server) Shutdown(ctx context.Context) error {
+func (s *Server) Shutdown(ctx context.Context) error {
 	return s.app.Shutdown(ctx)
 }
 
-func (s *server) Close() error {
+func (s *Server) Close() error {
 	return s.app.Close()
 }
 
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) { // for tests
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { // for tests
 	s.app.ServeHTTP(w, r)
 }
 

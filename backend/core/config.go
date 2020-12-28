@@ -14,22 +14,27 @@ import (
 	"github.com/spf13/viper"
 )
 
-var Conf conf
+var (
+	Conf  conf
+	build = "develop"
+)
 
 type (
 	conf struct {
+		Build                     string
+		Env                       string
 		Debug                     bool
 		TestMode                  bool
 		AppName                   string
 		WorkDir                   string
 		SecretKey                 string
 		DefaultFromEmail          mail.Address
-		SendgridApiKey            string
 		FrontendBaseURL           string
 		PasswordResetTimeoutDelta time.Duration
+		SendgridApiKey            string
+		RollbarToken              string
 		Database                  dbConf
 		Server                    srvConf
-		// Version // git version todo
 	}
 
 	dbConf struct {
@@ -56,14 +61,11 @@ func init() {
 	env := os.Getenv("ENV") // DEV (local; default), TEST, QA, PROD
 	if env == "" {
 		env = "DEV"
-	} else if strings.ToUpper(env) == "TEST" {
-		v.SetDefault("testMode", true)
 	}
 	v.SetEnvPrefix(env)
 
 	// load .env if it exists (ignore if it does not)
 	wd := getwd()
-	v.SetDefault("workDir", wd)
 	dotEnvPath := filepath.Join(wd, "config", ".env."+strings.ToLower(env))
 	if _, err := os.Stat(dotEnvPath); err == nil {
 		if err := godotenv.Load(dotEnvPath); err != nil {
@@ -75,59 +77,45 @@ func init() {
 
 	// ----------------------------- defaults ----------------------------
 	appName := "Masomo"
+	v.SetDefault("build", build)
+	v.SetDefault("env", strings.ToLower(env))
 	v.SetDefault("debug", true)
+	v.SetDefault("testMode", strings.EqualFold(env, "TEST"))
 	v.SetDefault("appName", appName)
+	v.SetDefault("workDir", wd)
 	v.SetDefault("secretKey", "poq5-wer)enb$+57=dz&uoxh2(h!x)#*c2(#yg4h^$cegm2emy")
 	v.SetDefault("frontendBaseURL", "http://localhost:8080")
 	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
 
-	v.SetDefault("dbEngine", "postgres")
-	v.SetDefault("dbName", strings.ToLower(appName))
-	v.SetDefault("dbHost", "localhost")
-	v.SetDefault("dbPort", "5432")
-	v.SetDefault("dbDisableTLS", true)
+	v.SetDefault("database.engine", "postgres")
+	v.SetDefault("database.name", strings.ToLower(appName))
+	v.SetDefault("database.user", "")
+	v.SetDefault("database.password", "")
+	v.SetDefault("database.host", "localhost")
+	v.SetDefault("database.port", "5432")
+	v.SetDefault("database.disableTLS", true)
 
-	v.SetDefault("srvHost", "localhost")
-	v.SetDefault("srvShutdownTimeout", 5*time.Second)
-	v.SetDefault("srvJwtExpirationDelta", 7*24*time.Hour)
-	v.SetDefault("srvJwtRefreshExpirationDelta", 4*time.Hour)
+	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.shutdownTimeout", 5*time.Second)
+	v.SetDefault("server.jwtExpirationDelta", 7*24*time.Hour)
+	v.SetDefault("server.jwtRefreshExpirationDelta", 4*time.Hour)
+
+	v.SetDefault("sendgridApiKey", "")
+	v.SetDefault("rollbarToken", "")
 	// -------------------------------------------------------------------
 
 	// check env vars and override defaults
 	v.AutomaticEnv()
 
-	setConfig(v)
-}
-
-func setConfig(v *viper.Viper) {
-	Conf = conf{
-		Debug:                     v.GetBool("debug"),
-		TestMode:                  v.GetBool("testMode"),
-		AppName:                   v.GetString("appName"),
-		WorkDir:                   v.GetString("workDir"),
-		SecretKey:                 v.GetString("secretKey"),
-		SendgridApiKey:            v.GetString("sendgridApiKey"),
-		FrontendBaseURL:           v.GetString("frontendBaseURL"),
-		PasswordResetTimeoutDelta: v.GetDuration("passwordResetTimeoutDelta"),
-		DefaultFromEmail: mail.Address{
-			Name:    v.GetString("appName"),
-			Address: "noreply@" + v.GetString("serverHost"),
-		},
-		Database: dbConf{
-			Engine:     v.GetString("dbEngine"),
-			Name:       v.GetString("dbName"),
-			User:       v.GetString("dbUser"),
-			Password:   v.GetString("dbPassword"),
-			Host:       net.JoinHostPort(v.GetString("dbHost"), v.GetString("dbPort")),
-			DisableTLS: v.GetBool("dbDisableTLS"),
-		},
-		Server: srvConf{
-			Host:                      v.GetString("srvHost"),
-			ShutdownTimeout:           v.GetDuration("srvShutdownTimeout"),
-			JWTExpirationDelta:        v.GetDuration("srvJwtExpirationDelta"),
-			JWTRefreshExpirationDelta: v.GetDuration("srvJwtRefreshExpirationDelta"),
-		},
+	if err := v.Unmarshal(&Conf); err != nil {
+		log.Fatal(err)
 	}
+
+	Conf.DefaultFromEmail = mail.Address{
+		Name:    v.GetString("appName"),
+		Address: "noreply@" + v.GetString("server.host"),
+	}
+	Conf.Database.Host = net.JoinHostPort(v.GetString("database.host"), v.GetString("database.port"))
 }
 
 // getwd tries to find the project root "backend".

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,27 +12,28 @@ import (
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/services/email"
+	"github.com/trezcool/masomo/services/logger"
 	"github.com/trezcool/masomo/storage/database"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 )
 
-var logger *log.Logger // todo: logger service
-
 // TODO:
-// - DB & Configs Singleton accessible apis !!!
-// - graceful shutdown
 // - Profiling (Benchmarking) !! https://blog.golang.org/pprof
 // - load test:
 // - APM/Tracing: New Relic Free :)
-// - Logging: Rollbar!!! | Sentry | LogRocket
 // - CSRF !!!
 // - Serve static files | Web Server ? (for mailers)
 func main() {
-	logger = log.New(os.Stdout, "API : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	// set up logger
+	stdLogger := log.New(os.Stdout, "API : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	logger := logsvc.NewRollbarLogger(stdLogger)
+	logger.SetEnabled(!core.Conf.Debug)
 
 	// set up DB
 	db, err := database.Open()
-	errAndDie(err, "opening database: %+v")
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("opening database: %v", err), err)
+	}
 	defer db.Close()
 
 	// set up services
@@ -51,6 +53,7 @@ func main() {
 		":8000",
 		shutdown,
 		&echoapi.Deps{
+			Logger:  logger,
 			UserSvc: usrSvc,
 		},
 	)
@@ -62,27 +65,23 @@ func main() {
 
 	// shutdown
 	select {
-	case err := <-serverErrors:
-		logger.Fatalf("server error: %+v", err)
+	case err = <-serverErrors:
+		logger.Fatal(fmt.Sprintf("server error: %v", err), err)
 
 	case sig := <-shutdown:
-		logger.Printf("%v: Start shutdown...", sig)
+		logger.Info(fmt.Sprintf("%v: Start shutdown...", sig))
 
 		// give outstanding requests a deadline for completion
 		ctx, cancel := context.WithTimeout(context.Background(), core.Conf.Server.ShutdownTimeout)
 		defer cancel()
 
 		// asking listener to shutdown and shed load
-		if err := app.Shutdown(ctx); err != nil {
-			logger.Printf("could not stop server gracefully: %+v", err)
+		if err = app.Shutdown(ctx); err != nil {
+			logger.Error(fmt.Sprintf("could not stop server gracefully: %v", err), err)
 
-			errAndDie(app.Close(), "could not force stop server: %+v")
+			if err = app.Close(); err != nil {
+				logger.Fatal(fmt.Sprintf("could not force stop server: %v", err), err)
+			}
 		}
-	}
-}
-
-func errAndDie(err error, msg string) {
-	if err != nil {
-		logger.Fatalf(msg, err)
 	}
 }

@@ -8,7 +8,7 @@ type serviceMock struct {
 	service
 }
 
-func NewServiceMock(db core.DB, repo Repository, mailSvc core.EmailService) Service {
+func NewServiceMock(db core.DB, repo Repository, mailSvc core.EmailService) *serviceMock {
 	return &serviceMock{
 		service: service{
 			db:       db,

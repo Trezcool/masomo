@@ -23,7 +23,7 @@ type userRepository struct {
 
 var _ user.Repository = (*userRepository)(nil) // interface compliance check
 
-func NewUserRepository(exec core.DBExecutor) user.Repository {
+func NewUserRepository(exec core.DBExecutor) *userRepository {
 	return &userRepository{exec: exec}
 }
 

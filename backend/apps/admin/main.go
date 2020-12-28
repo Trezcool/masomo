@@ -1,41 +1,43 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/services/logger"
 	"github.com/trezcool/masomo/storage/database"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 )
 
-var logger *log.Logger // todo: logger service
-
 func main() {
 	defer os.Exit(0)
 
-	logger = log.New(os.Stdout, "ADMIN : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	// set up logger
+	stdLogger := log.New(os.Stdout, "ADMIN : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
+	logger := logsvc.NewRollbarLogger(stdLogger)
+	logger.SetEnabled(!core.Conf.Debug)
 
 	// set up DB
 	db, err := database.Open()
-	errAndDie(err, "opening database: %+v")
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("opening database: %v", err), err)
+	}
 	defer db.Close()
-	errAndDie(db.Ping(), "pinging database: %+v")
+	if db.Ping() != nil {
+		logger.Fatal(fmt.Sprintf("pinging database: %v", err), err)
+	}
 
 	// start CLI
 	cli := commandLine{
 		db:      db,
 		usrRepo: boiledrepos.NewUserRepository(db),
 	}
-	if err := cli.run(os.Args); err != nil {
+	if err = cli.run(os.Args); err != nil {
 		if err != errHelp {
-			logger.Printf("\nerror: %+v\n", err)
+			logger.Info(fmt.Sprintf("\nerror: %v", err), err)
 		}
 		os.Exit(1)
-	}
-}
-
-func errAndDie(err error, msg string) {
-	if err != nil {
-		logger.Fatalf(msg, err)
 	}
 }

@@ -18,6 +18,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/pressly/goose v2.6.0+incompatible
+	github.com/rollbar/rollbar-go v1.2.0
+	github.com/rollbar/rollbar-go/errors v0.0.0-20201214230627-e27f702b86da
 	github.com/sendgrid/rest v2.6.2+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.7.2+incompatible
 	github.com/spf13/viper v1.7.1

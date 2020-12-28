@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/core/user"
 )
 
 var (
@@ -21,8 +22,8 @@ var (
 )
 
 // newAppHTTPErrorHandler returns a custom echo.HTTPErrorHandler that knows how to handle our errors.
-// signalShutdown is called in order to gracefully shutdown the server whenever a core.shutdown error is caught.
-func newAppHTTPErrorHandler(signalShutdown func()) echo.HTTPErrorHandler {
+// signalShutdown is called in order to gracefully shutdown the Server whenever a core.shutdown error is caught.
+func newAppHTTPErrorHandler(logger core.Logger, signalShutdown func()) echo.HTTPErrorHandler {
 	return func(err error, ctx echo.Context) {
 		var code int
 		var message interface{}
@@ -61,8 +62,16 @@ func newAppHTTPErrorHandler(signalShutdown func()) echo.HTTPErrorHandler {
 			code = http.StatusBadRequest
 		default: // any other error is a server error
 			code = http.StatusInternalServerError
-			message = http.StatusText(http.StatusInternalServerError)
-			ctx.Echo().Logger.Errorf("%+v", err)
+			msg := http.StatusText(http.StatusInternalServerError)
+			message = msg
+
+			var usr user.User
+			if claims, cErr := getContextClaims(ctx); cErr == nil {
+				usr.ID = claims.Subject
+				usr.Username = claims.Username
+				usr.Email = claims.Email
+			}
+			logger.Error(msg, errors.Wrap(err, msg), usr)
 
 			// shutting down...
 			if core.IsShutdown(err) {

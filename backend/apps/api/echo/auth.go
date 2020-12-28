@@ -28,6 +28,8 @@ var (
 type Claims struct {
 	jwt.StandardClaims
 	OrigIssuedAt int64    `json:"oriat,omitempty"`
+	Username     string   `json:"username,omitempty"`
+	Email        string   `json:"email,omitempty"`
 	IsStudent    bool     `json:"is_student,omitempty"` // -> STUDENT PORTAL
 	IsTeacher    bool     `json:"is_teacher,omitempty"` // -> TEACHER PORTAL
 	IsAdmin      bool     `json:"is_admin,omitempty"`   // -> ADMIN PORTAL
@@ -54,6 +56,8 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 			IssuedAt:  nownix,
 		},
 		OrigIssuedAt: oriat,
+		Username:     usr.Username,
+		Email:        usr.Email,
 		IsStudent:    usr.IsStudent(),
 		IsTeacher:    usr.IsTeacher(),
 		IsAdmin:      usr.IsAdmin(),
@@ -63,19 +67,24 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 }
 
 func authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
-	if usr, err := svc.GetByUsernameOrEmail(uname); err == nil {
-		if err := usr.CheckPassword(pwd); err == nil {
-			if usr.IsActive != nil && !*usr.IsActive {
-				return nil, errAccountDeactivated
-			}
-			usr, err := svc.SetLastLogin(usr)
-			if err != nil {
-				return nil, errors.Wrap(err, "setting lastLogin")
-			}
-			return GetUserClaims(usr), nil
+	usr, err := svc.GetByUsernameOrEmail(uname)
+	if err != nil {
+		if err == user.ErrNotFound {
+			return nil, errAuthenticationFailed
 		}
+		return nil, errors.Wrap(err, "finding user by username or email")
 	}
-	return nil, errAuthenticationFailed
+	if err = usr.CheckPassword(pwd); err != nil {
+		return nil, errAuthenticationFailed
+	}
+	if usr.IsActive != nil && !*usr.IsActive {
+		return nil, errAccountDeactivated
+	}
+	usr, err = svc.SetLastLogin(usr)
+	if err != nil {
+		return nil, errors.Wrap(err, "setting lastLogin")
+	}
+	return GetUserClaims(usr), nil
 }
 
 // GenerateToken generates a signed JWT token string representing the user Claims.

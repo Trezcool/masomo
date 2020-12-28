@@ -1,3 +1,6 @@
+PACKAGENAME := $(shell go list -m)
+GITVERSION := $(shell cd .. && git describe --always --tags)
+
 USERNAME?=""
 
 # ==============================================================================
@@ -35,10 +38,10 @@ test: lint
 # Build
 
 buildapi:
-	go build github.com/trezcool/masomo/apps/api
+	go build -ldflags "-X ${PACKAGENAME}/core.build=${GITVERSION}" github.com/trezcool/masomo/apps/api
 
 buildadmin:
-	go build github.com/trezcool/masomo/apps/admin
+	go build -ldflags "-X ${PACKAGENAME}/core.build=${GITVERSION}" github.com/trezcool/masomo/apps/admin
 
 # ==============================================================================
 # SQLBoiler models generation
