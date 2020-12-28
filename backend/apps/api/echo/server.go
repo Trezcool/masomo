@@ -28,9 +28,9 @@ type (
 	}
 )
 
-func NewServer(addr string, shutdown chan<- os.Signal, deps *Deps) *Server {
+func NewServer(shutdown chan<- os.Signal, deps *Deps) *Server {
 	s := &Server{
-		addr:     addr,
+		addr:     core.Conf.Server.Address(),
 		deps:     deps,
 		app:      echo.New(),
 		shutdown: shutdown,

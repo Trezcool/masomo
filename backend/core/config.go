@@ -43,16 +43,27 @@ type (
 		User       string
 		Password   string
 		Host       string
+		Port       string
 		DisableTLS bool
 	}
 
 	srvConf struct {
 		Host                      string
+		Port                      string
+		DebugHost                 string
 		ShutdownTimeout           time.Duration
 		JWTExpirationDelta        time.Duration
 		JWTRefreshExpirationDelta time.Duration
 	}
 )
+
+func (dc dbConf) Address() string {
+	return net.JoinHostPort(dc.Host, dc.Port)
+}
+
+func (sc srvConf) Address() string {
+	return net.JoinHostPort(sc.Host, sc.Port)
+}
 
 func init() {
 	v := viper.New()
@@ -96,6 +107,8 @@ func init() {
 	v.SetDefault("database.disableTLS", true)
 
 	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.port", "8000")
+	v.SetDefault("server.debugHost", "localhost:9000")
 	v.SetDefault("server.shutdownTimeout", 5*time.Second)
 	v.SetDefault("server.jwtExpirationDelta", 7*24*time.Hour)
 	v.SetDefault("server.jwtRefreshExpirationDelta", 4*time.Hour)
@@ -115,7 +128,6 @@ func init() {
 		Name:    v.GetString("appName"),
 		Address: "noreply@" + v.GetString("server.host"),
 	}
-	Conf.Database.Host = net.JoinHostPort(v.GetString("database.host"), v.GetString("database.port"))
 }
 
 // getwd tries to find the project root "backend".

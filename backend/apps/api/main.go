@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"expvar"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,10 +27,16 @@ import (
 // - CSRF !!!
 // - Serve static files | Web Server ? (for mailers)
 func main() {
+	// =========================================================================
+	// Initialize App & Set up Dependencies
+
 	// set up logger
 	stdLogger := log.New(os.Stdout, "API : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
 	logger := logsvc.NewRollbarLogger(stdLogger)
 	logger.SetEnabled(!core.Conf.Debug)
+
+	logger.Info(fmt.Sprintf("Application initializing : version %q", core.Conf.Build))
+	defer logger.Info("Application stopped")
 
 	// set up DB
 	db, err := database.Open()
@@ -45,12 +54,29 @@ func main() {
 	}
 	usrSvc := user.NewService(db, boiledrepos.NewUserRepository(db), mailSvc)
 
-	// start API server
+	// =========================================================================
+	// Start Debug Service
+	//
+	// /debug/pprof - Added to the default mux by importing the net/http/pprof package.
+	// /debug/vars - Added to the default mux by importing the expvar package.
+
+	// Expose important info under /debug/vars.
+	expvar.NewString("build").Set(core.Conf.Build)
+	expvar.NewString("env").Set(core.Conf.Env)
+
+	go func() {
+		if err = http.ListenAndServe(core.Conf.Server.DebugHost, http.DefaultServeMux); err != nil {
+			logger.Error(fmt.Sprintf("debug server closed: %v", err), err)
+		}
+	}()
+
+	// =========================================================================
+	// Start API Service
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	app := echoapi.NewServer(
-		":8000",
 		shutdown,
 		&echoapi.Deps{
 			Logger:  logger,

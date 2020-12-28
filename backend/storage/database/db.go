@@ -21,7 +21,7 @@ func Open() (*sql.DB, error) {
 	u := url.URL{
 		Scheme:   core.Conf.Database.Engine,
 		User:     url.UserPassword(core.Conf.Database.User, core.Conf.Database.Password),
-		Host:     core.Conf.Database.Host,
+		Host:     core.Conf.Database.Address(),
 		Path:     core.Conf.Database.Name,
 		RawQuery: q.Encode(),
 	}

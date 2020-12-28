@@ -39,7 +39,6 @@ func TestMain(m *testing.M) {
 
 	// set up server
 	app = NewServer(
-		"",  /* addr */
 		nil, /* shutdown */
 		&Deps{
 			UserSvc: usrSvc,
