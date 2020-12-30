@@ -30,7 +30,7 @@ jobs:
 
   gobuild:
     name: Go Build
-    needs: golint
+#    needs: golint
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
