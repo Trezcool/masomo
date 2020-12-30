@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	htmltmpl "html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/mail"
@@ -14,6 +15,8 @@ import (
 	texttmpl "text/template"
 
 	"github.com/pkg/errors"
+
+	"github.com/trezcool/masomo/fs"
 )
 
 var templates = parseTemplates()
@@ -165,8 +168,8 @@ func (m *EmailMessage) HasAttachments() bool { return len(m.Attachments) > 0 }
 func parseTemplates() tmplCache {
 	cache := make(tmplCache)
 
-	rp := filepath.Join(getwd(), "assets", "templates", "email")
-	fps, err := filepath.Glob(filepath.Join(rp, "*"))
+	rp := "assets/templates/email/"
+	fps, err := fs.Glob(appfs.FS, rp+"*")
 	if err != nil {
 		log.Fatalf("%+v", errors.Wrap(err, "globbing"))
 	}
@@ -174,7 +177,7 @@ func parseTemplates() tmplCache {
 	for _, fp := range fps {
 		fname := filepath.Base(fp)
 		ext := filepath.Ext(fname)
-		if strings.HasPrefix(fname, "_") || !(ext == ".txt" || ext == ".gohtml") {
+		if strings.HasPrefix(fname, "base") || !(ext == ".txt" || ext == ".gohtml") {
 			continue
 		}
 		name := fname[:strings.LastIndex(fname, ".")]
@@ -184,13 +187,13 @@ func parseTemplates() tmplCache {
 			entry = cache[name]
 		}
 		if ext == ".txt" {
-			tmpl, err := texttmpl.ParseFiles(filepath.Join(rp, "_base.txt"), fp)
+			tmpl, err := texttmpl.ParseFS(appfs.FS, rp+"base.txt", fp)
 			if err != nil {
 				log.Fatalf("%+v", errors.Wrap(err, "parsing .txt files"))
 			}
 			entry[ext] = tmpl
 		} else {
-			tmpl, err := htmltmpl.ParseFiles(filepath.Join(rp, "_base.gohtml"), fp)
+			tmpl, err := htmltmpl.ParseFS(appfs.FS, rp+"base.gohtml", fp)
 			if err != nil {
 				log.Fatalf("%+v", errors.Wrap(err, "parsing .gohtml files"))
 			}

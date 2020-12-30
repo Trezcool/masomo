@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	gooseRunFunc  = goose.Run // mockable
+	gooseRunFunc = goose.Run // mockable
+	// todo: use fs.FS once `goose` supports it
 	migrationsDir = filepath.Join(core.Conf.WorkDir, "storage", "database", "migrations")
 )
 

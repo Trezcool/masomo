@@ -1,6 +1,7 @@
 package core
 
 import (
+	"io/fs"
 	"log"
 	"net"
 	"net/mail"
@@ -12,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+
+	"github.com/trezcool/masomo/fs"
 )
 
 var (
@@ -76,10 +79,10 @@ func init() {
 	v.SetEnvPrefix(env)
 
 	// load .env if it exists (ignore if it does not)
-	wd := getwd()
-	dotEnvPath := filepath.Join(wd, "config", ".env."+strings.ToLower(env))
-	if _, err := os.Stat(dotEnvPath); err == nil {
-		if err := godotenv.Load(dotEnvPath); err != nil {
+	dotEnvPath := "config/" + strings.ToLower(env) + ".env"
+	if file, err := appfs.FS.Open(dotEnvPath); err == nil {
+		defer file.Close()
+		if err != loadEnvFile(file) {
 			log.Fatalf("%+v", errors.Wrap(err, "loading "+dotEnvPath))
 		}
 	} else if !os.IsNotExist(err) {
@@ -93,7 +96,7 @@ func init() {
 	v.SetDefault("debug", true)
 	v.SetDefault("testMode", strings.EqualFold(env, "TEST"))
 	v.SetDefault("appName", appName)
-	v.SetDefault("workDir", wd)
+	v.SetDefault("workDir", getwd())
 	v.SetDefault("secretKey", "poq5-wer)enb$+57=dz&uoxh2(h!x)#*c2(#yg4h^$cegm2emy")
 	v.SetDefault("frontendBaseURL", "http://localhost:8080")
 	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
@@ -115,7 +118,7 @@ func init() {
 
 	v.SetDefault("sendgridApiKey", "")
 	v.SetDefault("rollbarToken", "")
-	// -------------------------------------------------------------------
+	// --------------------------------------------------------------------
 
 	// check env vars and override defaults
 	v.AutomaticEnv()
@@ -130,6 +133,29 @@ func init() {
 	}
 }
 
+// todo: get rid of this once `gotdotenv` supports new fs.FS
+func loadEnvFile(file fs.File) error {
+	envMap, err := godotenv.Parse(file)
+	if err != nil {
+		return err
+	}
+
+	currentEnv := map[string]bool{}
+	rawEnv := os.Environ()
+	for _, rawEnvLine := range rawEnv {
+		key := strings.Split(rawEnvLine, "=")[0]
+		currentEnv[key] = true
+	}
+
+	for key, value := range envMap {
+		if !currentEnv[key] {
+			_ = os.Setenv(key, value)
+		}
+	}
+	return nil
+}
+
+// todo: get rid of this once fs.FS is fully supported by all libs used
 // getwd tries to find the project root "backend".
 // go-test changes the working directory to the test package being run during tests... this breaks our code...
 // see: https://stackoverflow.com/questions/23847003/golang-tests-and-working-directory

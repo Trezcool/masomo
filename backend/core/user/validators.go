@@ -5,8 +5,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,6 +15,7 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 
 	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/fs"
 )
 
 var (
@@ -69,9 +68,9 @@ func init() {
 
 func loadCommonPasswords() []string {
 	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
-	pwdAssetPath := filepath.Join(core.Conf.WorkDir, "assets", "common-passwords.txt.gz")
+	pwdAssetPath := "assets/common-passwords.txt.gz"
 
-	file, err := os.Open(pwdAssetPath)
+	file, err := appfs.FS.Open(pwdAssetPath)
 	if err != nil {
 		log.Printf("%+v", errors.Wrap(err, "opening "+pwdAssetPath))
 		return nil

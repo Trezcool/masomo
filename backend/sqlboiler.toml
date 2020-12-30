@@ -1,4 +1,4 @@
-output = "../storage/database/sqlboiler/models"
+output = "storage/database/sqlboiler/models"
 wipe = true
 no-hooks = true
 add-global-variants = true

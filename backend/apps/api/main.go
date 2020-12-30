@@ -89,7 +89,9 @@ func main() {
 		serverErrors <- app.Start()
 	}()
 
-	// shutdown
+	// =========================================================================
+	// Shutdown
+
 	select {
 	case err = <-serverErrors:
 		logger.Fatal(fmt.Sprintf("server error: %v", err), err)

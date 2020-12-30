@@ -47,4 +47,4 @@ buildadmin:
 # SQLBoiler models generation
 
 boil:
-	cd config && sqlboiler psql
+	sqlboiler psql
