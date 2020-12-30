@@ -44,7 +44,7 @@ jobs:
       run: |
         mkdir opt && cd opt
         git clone https://github.com/udhos/update-golang && cd update-golang
-        RELEASE=1.16beta1 ./update-golang.sh
+        sudo RELEASE=1.16beta1 ./update-golang.sh
 
     - name: Get dependencies
       run: |
