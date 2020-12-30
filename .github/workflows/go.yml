@@ -16,16 +16,17 @@ env:
   ENV: QA
 
 jobs:
-  golint:
-    name: Go Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.33.0
-          working-directory: backend
+# todo: make it work with Go 1.16beta
+#  golint:
+#    name: Go Lint
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Run golangci-lint
+#        uses: golangci/golangci-lint-action@v2
+#        with:
+#          version: v1.33.0
+#          working-directory: backend
 
   gobuild:
     name: Go Build
