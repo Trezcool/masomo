@@ -42,16 +42,21 @@ jobs:
 
     - name: Set up Go 1.16beta
       run: |
-        mkdir opt && cd opt
+        cd /opt
         git clone https://github.com/udhos/update-golang && cd update-golang
         sudo RELEASE=1.16beta1 ./update-golang.sh
 
     - name: Get dependencies
       run: |
+        go version
+        cat /usr/local/go/VERSION
         go get -v -t -d ./...
 
     - name: Build
-      run: go build -v -race ./...
+      run: |
+        go version
+        cat /usr/local/go/VERSION
+        go build -v -race ./...
 
     - name: Setup PostgreSQL
       uses: Harmon758/postgresql-action@v1.0.0
@@ -67,7 +72,10 @@ jobs:
         TEST_DATABASE.NAME: masomotest
         TEST_DATABASE.USER: masomotest
         TEST_DATABASE.PASSWORD: masomotest
-      run: go test -p 1 -timeout 2m -coverprofile=coverage.txt -covermode=atomic -v ./...
+      run: |
+        go version
+        cat /usr/local/go/VERSION
+        go test -p 1 -timeout 2m -coverprofile=coverage.txt -covermode=atomic -v ./...
 
     - name: Upload test coverage
       uses: codecov/codecov-action@v1.0.15
