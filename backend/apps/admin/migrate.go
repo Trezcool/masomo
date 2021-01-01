@@ -1,23 +1,17 @@
 package main
 
 import (
-	"path/filepath"
+	"github.com/trezcool/goose"
 
-	"github.com/pressly/goose"
-
-	"github.com/trezcool/masomo/core"
+	"github.com/trezcool/masomo/fs"
 )
 
-var (
-	gooseRunFunc = goose.Run // mockable
-	// todo: use fs.FS once `goose` supports it
-	migrationsDir = filepath.Join(core.Conf.WorkDir, "storage", "database", "migrations")
-)
+var gooseRunFunc = goose.RunFS // mockable
 
 func (cli *commandLine) migrate(args []string) error {
 	arguments := make([]string, 0)
 	if len(args) > 1 {
 		arguments = append(arguments, args[1:]...)
 	}
-	return gooseRunFunc(args[0], cli.db, migrationsDir, arguments...)
+	return gooseRunFunc(args[0], cli.db, appfs.FS, "migrations", arguments...)
 }

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/mail"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,7 +28,6 @@ type (
 		Debug                     bool
 		TestMode                  bool
 		AppName                   string
-		WorkDir                   string
 		SecretKey                 string
 		DefaultFromEmail          mail.Address
 		FrontendBaseURL           string
@@ -96,7 +94,6 @@ func init() {
 	v.SetDefault("debug", true)
 	v.SetDefault("testMode", strings.EqualFold(env, "TEST"))
 	v.SetDefault("appName", appName)
-	v.SetDefault("workDir", getwd())
 	v.SetDefault("secretKey", "poq5-wer)enb$+57=dz&uoxh2(h!x)#*c2(#yg4h^$cegm2emy")
 	v.SetDefault("frontendBaseURL", "http://localhost:8080")
 	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
@@ -153,31 +150,4 @@ func loadEnvFile(file fs.File) error {
 		}
 	}
 	return nil
-}
-
-// todo: get rid of this once fs.FS is fully supported by all libs used
-// getwd tries to find the project root "backend".
-// go-test changes the working directory to the test package being run during tests... this breaks our code...
-// see: https://stackoverflow.com/questions/23847003/golang-tests-and-working-directory
-// this is a temporary fix for now :(
-func getwd() string {
-	root := "backend"
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("%+v", errors.Wrap(err, "getting working directory"))
-	}
-	currDir := wd
-	for {
-		if fi, err := os.Stat(currDir); err == nil {
-			dirBase := filepath.Base(currDir)
-			if dirBase == root && fi.IsDir() {
-				return currDir
-			}
-		}
-		newDir := filepath.Dir(currDir)
-		if newDir == string(os.PathSeparator) || newDir == currDir {
-			log.Fatal("project root not found")
-		}
-		currDir = newDir
-	}
 }

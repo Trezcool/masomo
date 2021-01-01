@@ -5,21 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/pressly/goose"
+	"github.com/trezcool/goose"
 
-	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
+	"github.com/trezcool/masomo/fs"
 	"github.com/trezcool/masomo/storage/database"
 )
 
 var (
 	testDBRegex       = regexp.MustCompile("(?i)test")
-	migrationsDir     = filepath.Join(core.Conf.WorkDir, "storage", "database", "migrations")
 	truncateTablesSQL = `
 DO
 $func$
@@ -62,7 +60,7 @@ func OpenDB() *sql.DB {
 
 func ResetDB(t *testing.T, db *sql.DB) {
 	// migrate
-	if err := goose.Run("up", db, migrationsDir); err != nil {
+	if err := goose.RunFS("up", db, appfs.FS, "migrations"); err != nil {
 		t.Fatalf("ResetDB: migrate up: %v", err)
 	}
 	// truncate

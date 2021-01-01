@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"testing"
@@ -57,7 +58,7 @@ func Test_commandLine_migrate(t *testing.T) {
 	testutil.ResetDB(t, db)
 
 	origGooseRunFunc := gooseRunFunc
-	gooseRunFunc = func(command string, db *sql.DB, dir string, args ...string) error {
+	gooseRunFunc = func(command string, db *sql.DB, fsys fs.FS, dir string, args ...string) error {
 		switch command {
 		case "up", "up-by-one", "down", "fix", "redo", "reset", "status", "version": // pass
 		case "up-to":
