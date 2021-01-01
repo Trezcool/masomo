@@ -42,22 +42,14 @@ jobs:
         go-version: 1.16.0-beta1
         stable: false
 
-#    - name: Set up Go 1.16beta
-#      run: |
-#        cd /opt
-#        git clone https://github.com/udhos/update-golang && cd update-golang
-#        sudo RELEASE=1.16beta1 ./update-golang.sh
-
     - name: Get dependencies
       run: |
         go version
-        cat /usr/local/go/VERSION
         go get -v -t -d ./...
 
     - name: Build
       run: |
         go version
-        cat /usr/local/go/VERSION
         go build -v -race ./...
 
     - name: Setup PostgreSQL
@@ -76,7 +68,6 @@ jobs:
         TEST_DATABASE.PASSWORD: masomotest
       run: |
         go version
-        cat /usr/local/go/VERSION
         go test -p 1 -timeout 2m -coverprofile=coverage.txt -covermode=atomic -v ./...
 
     - name: Upload test coverage
