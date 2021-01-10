@@ -24,7 +24,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1 // indirect
 	// todo: switch back to pressly/goose once PR merged
-	github.com/trezcool/goose v2.7.0-rc5.0.20210101035729-af17eb634d1d+incompatible
+	github.com/trezcool/goose v2.7.0-rc5.0.20210110092636-bfd95e8ec839+incompatible
 	github.com/volatiletech/null/v8 v8.1.0
 	github.com/volatiletech/randomize v0.0.1
 	github.com/volatiletech/sqlboiler/v4 v4.3.1

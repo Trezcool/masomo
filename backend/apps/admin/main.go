@@ -25,9 +25,6 @@ func main() {
 		logger.Fatal(fmt.Sprintf("opening database: %v", err), err)
 	}
 	defer db.Close()
-	if db.Ping() != nil {
-		logger.Fatal(fmt.Sprintf("pinging database: %v", err), err)
-	}
 
 	// start CLI
 	cli := commandLine{

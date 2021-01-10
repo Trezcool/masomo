@@ -1,0 +1,32 @@
+version: '2'
+
+services:
+  masomo-web:
+    container_name: masomo-web
+    build:
+      context: .
+      args:
+        - VCS_REF
+    ports:
+      - '8000:8000' # api
+      - '9000:9000' # debug
+    depends_on:
+      - db
+    environment:
+      ENV: QA
+      QA_DEBUG: '0'
+      QA_FRONTENDBASEURL: 'https://masomo.trezcool.com'
+      QA_SECRETKEY:
+      QA_SENDGRIDAPIKEY:
+      QA_ROLLBARTOKEN:
+      QA_DATABASE__HOST: db
+      QA_DATABASE__USER: masomo
+      QA_DATABASE__PASSWORD:
+      QA_DATABASE__ADMINUSER:
+      QA_DATABASE__ADMINPASSWORD:
+      QA_SERVER__JWTEXPIRATION: '10m0s'
+
+networks:
+  default:
+    external:
+      name: shared

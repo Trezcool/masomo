@@ -169,10 +169,10 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 			Issuer:    "Masomo",
 			Subject:   student.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(core.Conf.Server.JWTExpirationDelta).Unix(),
+			ExpiresAt: now.Add(core.Conf.Server.JWTExpiration).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OrigIssuedAt: now.Add(-2 * core.Conf.Server.JWTRefreshExpirationDelta).Unix(), // older than threshold
+		OrigIssuedAt: now.Add(-2 * core.Conf.Server.JWTRefreshExpiration).Unix(), // older than threshold
 		IsStudent:    student.IsStudent(),
 		IsTeacher:    student.IsTeacher(),
 		IsAdmin:      student.IsAdmin(),
@@ -300,7 +300,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	}
 
 	// generate an expired token
-	dayLate := core.Conf.PasswordResetTimeoutDelta + (24 * time.Hour)
+	dayLate := core.Conf.PasswordResetTimeout + (24 * time.Hour)
 	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := user.MakeToken(student)
 	if err != nil {

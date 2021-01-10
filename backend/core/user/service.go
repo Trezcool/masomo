@@ -28,6 +28,7 @@ type (
 		QueryUsers(ctx context.Context, filter *QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]User, error)
 		GetUser(ctx context.Context, filter GetFilter, exec ...core.DBExecutor) (User, error)
 		UpdateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
+		UpdateOrCreateUser(ctx context.Context, user User, exec ...core.DBExecutor) (User, error)
 		DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error)
 	}
 
@@ -115,7 +116,8 @@ func (svc *service) GetByEmail(email string) (User, error) {
 }
 
 func (svc *service) GetByUsernameOrEmail(uname string) (User, error) {
-	usr, err := svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: core.CleanString(uname, true /* lower */)})
+	uname = core.CleanString(uname, true /* lower */)
+	usr, err := svc.repo.GetUser(context.Background(), GetFilter{UsernameOrEmail: []string{uname}})
 	return usr, errors.Wrap(err, "finding user by username or email")
 }
 

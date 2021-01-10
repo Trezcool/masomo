@@ -8,7 +8,7 @@ import (
 
 func (cli *commandLine) resetPassword(uname, pwd string) error {
 	ctx := context.Background()
-	usr, err := cli.usrRepo.GetUser(ctx, user.GetFilter{UsernameOrEmail: uname})
+	usr, err := cli.usrRepo.GetUser(ctx, user.GetFilter{UsernameOrEmail: []string{uname}})
 	if err != nil {
 		return err
 	}

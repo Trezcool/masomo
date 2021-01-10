@@ -52,7 +52,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 			Issuer:    core.Conf.AppName,
 			Subject:   usr.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(core.Conf.Server.JWTExpirationDelta).Unix(),
+			ExpiresAt: now.Add(core.Conf.Server.JWTExpiration).Unix(),
 			IssuedAt:  nownix,
 		},
 		OrigIssuedAt: oriat,
@@ -166,7 +166,7 @@ func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	}
 
 	// check if refresh has not expired
-	expTime := time.Unix(claims.OrigIssuedAt, 0).Add(core.Conf.Server.JWTRefreshExpirationDelta)
+	expTime := time.Unix(claims.OrigIssuedAt, 0).Add(core.Conf.Server.JWTRefreshExpiration)
 	if time.Now().After(expTime) {
 		return "", errRefreshExpired
 	}

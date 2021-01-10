@@ -23,40 +23,48 @@ var (
 
 type (
 	conf struct {
-		Build                     string
-		Env                       string
-		Debug                     bool
-		TestMode                  bool
-		AppName                   string
-		SecretKey                 string
-		DefaultFromEmail          mail.Address
-		FrontendBaseURL           string
-		PasswordResetTimeoutDelta time.Duration
-		SendgridApiKey            string
-		RollbarToken              string
-		Database                  dbConf
-		Server                    srvConf
+		Build                string
+		Env                  string
+		Debug                bool
+		TestMode             bool
+		AppName              string
+		SecretKey            string
+		FrontendBaseURL      string
+		PasswordResetTimeout time.Duration
+		SendgridApiKey       string
+		RollbarToken         string
+		Database             dbConf
+		Server               srvConf
 	}
 
 	dbConf struct {
-		Engine     string
-		Name       string
-		User       string
-		Password   string
-		Host       string
-		Port       string
-		DisableTLS bool
+		Engine        string
+		Name          string
+		User          string
+		Password      string
+		AdminUser     string
+		AdminPassword string
+		Host          string
+		Port          string
+		DisableTLS    bool
 	}
 
 	srvConf struct {
-		Host                      string
-		Port                      string
-		DebugHost                 string
-		ShutdownTimeout           time.Duration
-		JWTExpirationDelta        time.Duration
-		JWTRefreshExpirationDelta time.Duration
+		Host                 string
+		Port                 string
+		DebugHost            string
+		ShutdownTimeout      time.Duration
+		JWTExpiration        time.Duration
+		JWTRefreshExpiration time.Duration
 	}
 )
+
+func (c conf) DefaultFromEmail() mail.Address {
+	return mail.Address{
+		Name:    c.AppName,
+		Address: "noreply@" + c.Server.Host,
+	}
+}
 
 func (dc dbConf) Address() string {
 	return net.JoinHostPort(dc.Host, dc.Port)
@@ -75,6 +83,7 @@ func init() {
 		env = "DEV"
 	}
 	v.SetEnvPrefix(env)
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
 
 	// load .env if it exists (ignore if it does not)
 	dotEnvPath := "config/" + strings.ToLower(env) + ".env"
@@ -96,25 +105,26 @@ func init() {
 	v.SetDefault("appName", appName)
 	v.SetDefault("secretKey", "poq5-wer)enb$+57=dz&uoxh2(h!x)#*c2(#yg4h^$cegm2emy")
 	v.SetDefault("frontendBaseURL", "http://localhost:8080")
-	v.SetDefault("passwordResetTimeoutDelta", 3*24*time.Hour)
+	v.SetDefault("passwordResetTimeout", 3*24*time.Hour)
+	v.SetDefault("sendgridApiKey", "")
+	v.SetDefault("rollbarToken", "")
 
 	v.SetDefault("database.engine", "postgres")
 	v.SetDefault("database.name", strings.ToLower(appName))
 	v.SetDefault("database.user", "")
 	v.SetDefault("database.password", "")
+	v.SetDefault("database.adminUser", "")
+	v.SetDefault("database.adminPassword", "")
 	v.SetDefault("database.host", "localhost")
 	v.SetDefault("database.port", "5432")
 	v.SetDefault("database.disableTLS", true)
 
-	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", "8000")
-	v.SetDefault("server.debugHost", "localhost:9000")
+	v.SetDefault("server.debugHost", "0.0.0.0:9000")
 	v.SetDefault("server.shutdownTimeout", 5*time.Second)
-	v.SetDefault("server.jwtExpirationDelta", 7*24*time.Hour)
-	v.SetDefault("server.jwtRefreshExpirationDelta", 4*time.Hour)
-
-	v.SetDefault("sendgridApiKey", "")
-	v.SetDefault("rollbarToken", "")
+	v.SetDefault("server.jwtExpiration", 7*24*time.Hour)
+	v.SetDefault("server.jwtRefreshExpiration", 4*time.Hour)
 	// --------------------------------------------------------------------
 
 	// check env vars and override defaults
@@ -124,9 +134,8 @@ func init() {
 		log.Fatal(err)
 	}
 
-	Conf.DefaultFromEmail = mail.Address{
-		Name:    v.GetString("appName"),
-		Address: "noreply@" + v.GetString("server.host"),
+	if Conf.Debug {
+		log.Printf("\n\nConf: %v\n\n", v.AllSettings())
 	}
 }
 

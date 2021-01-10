@@ -78,7 +78,7 @@ func verifyToken(usr User, token string) error {
 	}
 
 	// check that the timestamp is within limit
-	if (_numDaysSince2001(time.Now()) - ts) > int(core.Conf.PasswordResetTimeoutDelta/(24*time.Hour)) {
+	if (_numDaysSince2001(time.Now()) - ts) > int(core.Conf.PasswordResetTimeout/(24*time.Hour)) {
 		return errTokenExpired
 	}
 	return nil

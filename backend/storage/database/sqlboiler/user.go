@@ -187,10 +187,20 @@ func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, e
 			mod = models.UserWhere.Username.EQ(null.StringFrom(filter.Username))
 		} else if filter.Email != "" {
 			mod = models.UserWhere.Email.EQ(null.StringFrom(filter.Email))
-		} else if filter.UsernameOrEmail != "" {
-			mod = qm.Where(
-				fmt.Sprintf("%s = ? OR %s = ?", models.UserColumns.Username, models.UserColumns.Email),
-				filter.UsernameOrEmail, filter.UsernameOrEmail)
+		} else if filter.UsernameOrEmail != nil {
+			var email string
+			uname := filter.UsernameOrEmail[0]
+			if len(filter.UsernameOrEmail) == 2 {
+				email = filter.UsernameOrEmail[1]
+			}
+			if email == "" {
+				email = uname
+			} else if uname == "" {
+				uname = email
+			}
+			if email != "" && uname != "" {
+				mod = qm.Where(fmt.Sprintf("%s = ? OR %s = ?", models.UserColumns.Username, models.UserColumns.Email), uname, email)
+			}
 		}
 
 		usr, err = models.Users(mod).One(ctx, exe)
@@ -208,6 +218,13 @@ func (repo userRepository) UpdateUser(ctx context.Context, usr user.User, exec .
 		return user.User{}, errors.Wrap(err, "updating user")
 	}
 	return repo.unboil(u), nil
+}
+
+func (repo userRepository) UpdateOrCreateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
+	if usr.ID == "" {
+		return repo.CreateUser(ctx, usr, exec...)
+	}
+	return repo.UpdateUser(ctx, usr, exec...)
 }
 
 func (repo userRepository) DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error) {

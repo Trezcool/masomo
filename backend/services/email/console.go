@@ -28,9 +28,9 @@ type consoleService struct {
 
 var _ core.EmailService = (*consoleService)(nil)
 
-func NewConsoleService() core.EmailService {
+func NewConsoleService() *consoleService {
 	return &consoleService{
-		defaultFromEmail: core.Conf.DefaultFromEmail,
+		defaultFromEmail: core.Conf.DefaultFromEmail(),
 		subjPrefix:       "[" + core.Conf.AppName + "] ",
 	}
 }
@@ -131,10 +131,10 @@ type consoleServiceMock struct {
 	consoleService
 }
 
-func NewConsoleServiceMock() core.EmailService {
+func NewConsoleServiceMock() *consoleServiceMock {
 	return &consoleServiceMock{
 		consoleService: consoleService{
-			defaultFromEmail: core.Conf.DefaultFromEmail,
+			defaultFromEmail: core.Conf.DefaultFromEmail(),
 			subjPrefix:       "[" + core.Conf.AppName + "] ",
 			disableOutput:    true,
 		},

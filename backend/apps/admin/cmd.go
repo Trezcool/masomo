@@ -55,6 +55,9 @@ func (cli *commandLine) run(args []string) error {
 	}
 
 	switch args[1] {
+	case "createdb":
+		return cli.createDB()
+
 	case "migrate":
 		if len(args) < 3 || args[2] == "" {
 			cli.printUsage()
@@ -108,6 +111,8 @@ var (
 	usage = `Admin Command Line Interface Usage:
 
 Commands:
+  createdb                  Create the app DB
+
   migrate                   Migrate the DB
     up                      Migrate the DB to the most recent version available
     up-by-one               Migrate the DB to next version

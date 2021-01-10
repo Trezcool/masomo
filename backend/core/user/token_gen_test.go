@@ -29,7 +29,7 @@ func TestMakeVerifyToken(t *testing.T) {
 	}
 
 	// generate an expired token
-	dayLate := core.Conf.PasswordResetTimeoutDelta + (24 * time.Hour)
+	dayLate := core.Conf.PasswordResetTimeout + (24 * time.Hour)
 	NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := MakeToken(usr)
 	if err != nil {

@@ -214,5 +214,5 @@ type GetFilter struct {
 	ID              string
 	Username        string
 	Email           string
-	UsernameOrEmail string
+	UsernameOrEmail []string // [uname] | [username, email]
 }

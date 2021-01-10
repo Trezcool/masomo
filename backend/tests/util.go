@@ -35,13 +35,13 @@ $func$;
 )
 
 func OpenDB() *sql.DB {
-	db, err := database.Open()
-	if err != nil {
-		fmt.Printf("OpenDB: %v", err)
+	if err := database.Create(); err != nil {
+		fmt.Printf("creating DB: %v", err)
 		os.Exit(1)
 	}
-	if err = db.Ping(); err != nil {
-		fmt.Printf("db.Ping(): %v", err)
+	db, err := database.Open()
+	if err != nil {
+		fmt.Printf("opening DB: %v", err)
 		os.Exit(1)
 	}
 

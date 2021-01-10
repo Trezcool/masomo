@@ -1,0 +1,32 @@
+version: '2'
+
+services:
+  db:
+    image: postgres:13
+    logging:
+      driver: 'none'
+    environment:
+      POSTGRES_PASSWORD: 'postgres'
+    volumes:
+      - pg-data:/var/lib/postgresql/db-data
+
+  web:
+    build:
+      context: .
+      args:
+        - VCS_REF
+    ports:
+      - '8000:8000' # api
+      - '9000:9000' # debug
+    depends_on:
+      - db
+    environment:
+      ENV: DEV
+      DEV_DATABASE__HOST: db
+      DEV_DATABASE__USER: masomo
+      DEV_DATABASE__PASSWORD: masomo
+      DEV_DATABASE__ADMINUSER: postgres
+      DEV_DATABASE__ADMINPASSWORD: postgres
+
+volumes:
+  pg-data:

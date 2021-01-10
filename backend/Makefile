@@ -1,10 +1,13 @@
-PACKAGENAME := $(shell go list -m)
-GITVERSION := $(shell cd .. && git describe --always --tags)
+PKGNAME := $(shell go list -m)
+VCSREF := $(shell cd .. && git describe --always --tags)
 
 USERNAME?=""
 
 # ==============================================================================
 # Administration
+
+createdb:
+	go run github.com/trezcool/masomo/apps/admin createdb
 
 MIGCMD?=up
 ARG1?=""
@@ -37,14 +40,44 @@ test: lint
 # ==============================================================================
 # Build
 
-buildapi:
-	go build -ldflags "-X ${PACKAGENAME}/core.build=${GITVERSION}" github.com/trezcool/masomo/apps/api
+api:
+	go build -ldflags "-X ${PKGNAME}/core.build=${VCSREF}" ${PKGNAME}/apps/api
 
-buildadmin:
-	go build -ldflags "-X ${PACKAGENAME}/core.build=${GITVERSION}" github.com/trezcool/masomo/apps/admin
+admin:
+	go build -ldflags "-X ${PKGNAME}/core.build=${VCSREF}" ${PKGNAME}/apps/admin
 
 # ==============================================================================
 # SQLBoiler models generation
 
 boil:
 	sqlboiler psql
+
+# ==============================================================================
+# Modules support
+tidy:
+	go mod tidy
+	go mod vendor
+
+deps-upgrade:
+	go get -u -t -d -v ./...
+	go mod tidy
+	go mod vendor
+
+deps-cleancache:
+	go clean -modcache
+
+# ==============================================================================
+# Running from within docker compose
+
+up:
+	VCS_REF=${VCSREF} docker-compose -f docker-compose.yml -p masomo build
+	docker-compose -f docker-compose.yml -p masomo up --remove-orphans
+
+down:
+	docker-compose -f docker-compose.yml -p masomo down --remove-orphans
+#	docker-compose -f docker-compose.yml -p masomo down --remove-orphans --volumes --rmi local  # cleanup
+
+logs:
+	docker-compose -f docker-compose.yml -p masomo logs -f
+
+.PHONY: api admin logs test

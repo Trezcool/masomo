@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"expvar"
 	"fmt"
 	"log"
@@ -39,9 +40,9 @@ func main() {
 	defer logger.Info("Application stopped")
 
 	// set up DB
-	db, err := database.Open()
+	db, err := setUpDB()
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("opening database: %v", err), err)
+		logger.Fatal(fmt.Sprintf("setting up database: %v", err), err)
 	}
 	defer db.Close()
 
@@ -112,4 +113,20 @@ func main() {
 			}
 		}
 	}
+}
+
+func setUpDB() (*sql.DB, error) {
+	if err := database.Create(); err != nil {
+		return nil, err
+	}
+
+	db, err := database.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = database.Migrate(db); err != nil {
+		return nil, err
+	}
+	return db, nil
 }

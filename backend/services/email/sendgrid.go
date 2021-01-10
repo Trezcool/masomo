@@ -26,20 +26,20 @@ type sendgridService struct {
 
 var _ core.EmailService = (*sendgridService)(nil)
 
-func NewSendgridService() core.EmailService {
+func NewSendgridService() *sendgridService {
+	from := core.Conf.DefaultFromEmail()
 	return &sendgridService{
 		key:        core.Conf.SendgridApiKey,
-		from:       sgmail.NewEmail(core.Conf.DefaultFromEmail.Name, core.Conf.DefaultFromEmail.Address),
+		from:       sgmail.NewEmail(from.Name, from.Address),
 		subjPrefix: "[" + core.Conf.AppName + "] ",
 	}
 }
 
-func (svc *sendgridService) SendMessages(messages ...*core.EmailMessage) {
+func (svc sendgridService) SendMessages(messages ...*core.EmailMessage) {
 	for _, msg := range messages {
 		msg := msg
 		go func() {
-			err := msg.Render()
-			if err != nil {
+			if err := msg.Render(); err != nil {
 				panic(err) // todo: logger
 			}
 			if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
@@ -49,7 +49,7 @@ func (svc *sendgridService) SendMessages(messages ...*core.EmailMessage) {
 	}
 }
 
-func (svc *sendgridService) prepare(msg core.EmailMessage) *sgmail.SGMailV3 {
+func (svc sendgridService) prepare(msg core.EmailMessage) *sgmail.SGMailV3 {
 	p := sgmail.NewPersonalization()
 	p.Subject = svc.subjPrefix + msg.Subject
 
