@@ -18,7 +18,9 @@
 # Backend #
 ###########
 # binaries
+backend/admin
 backend/apps/admin/admin
+backend/api
 backend/apps/api/api
 
 # storage

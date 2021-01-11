@@ -1,0 +1,8 @@
+# binaries
+admin
+apps/admin/admin
+api
+apps/api/api
+
+# storage
+backend/storage/media/local/files/

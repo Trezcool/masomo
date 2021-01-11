@@ -14,10 +14,13 @@ services:
     build:
       context: .
       args:
-        - VCS_REF
+        - MODULE
+        - VCSREF
+        - PACKAGES=${MODULE}/apps/admin ${MODULE}/apps/api
     ports:
       - '8000:8000' # api
       - '9000:9000' # debug
+    command: ./api
     depends_on:
       - db
     environment:

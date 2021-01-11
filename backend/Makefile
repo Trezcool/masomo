@@ -1,4 +1,4 @@
-PKGNAME := $(shell go list -m)
+MODULE := $(shell go list -m)
 VCSREF := $(shell cd .. && git describe --always --tags)
 
 USERNAME?=""
@@ -7,25 +7,25 @@ USERNAME?=""
 # Administration
 
 createdb:
-	go run github.com/trezcool/masomo/apps/admin createdb
+	go run ${MODULE}/apps/admin createdb
 
 MIGCMD?=up
 ARG1?=""
 ARG2?=""
 migrate:
-	go run github.com/trezcool/masomo/apps/admin migrate $(MIGCMD) $(ARG1) $(ARG2)
+	go run ${MODULE}/apps/admin migrate $(MIGCMD) $(ARG1) $(ARG2)
 
 EMAIL?=""
 ADMIN?=false
 adduser:
 ifeq ($(ADMIN),true)
-	go run github.com/trezcool/masomo/apps/admin adduser -username $(USERNAME) -email $(EMAIL) -admin
+	go run ${MODULE}/apps/admin adduser -username $(USERNAME) -email $(EMAIL) -admin
 else
-	go run github.com/trezcool/masomo/apps/admin adduser -username $(USERNAME) -email $(EMAIL)
+	go run ${MODULE}/apps/admin adduser -username $(USERNAME) -email $(EMAIL)
 endif
 
 resetpassword:
-	go run github.com/trezcool/masomo/apps/admin resetpassword -username $(USERNAME)
+	go run ${MODULE}/apps/admin resetpassword -username $(USERNAME)
 
 # ==============================================================================
 # Tests & Linting
@@ -41,10 +41,10 @@ test: lint
 # Build
 
 api:
-	go build -ldflags "-X ${PKGNAME}/core.build=${VCSREF}" ${PKGNAME}/apps/api
+	go build -ldflags "-X ${MODULE}/core.build=${VCSREF}" ${MODULE}/apps/api
 
 admin:
-	go build -ldflags "-X ${PKGNAME}/core.build=${VCSREF}" ${PKGNAME}/apps/admin
+	go build -ldflags "-X ${MODULE}/core.build=${VCSREF}" ${MODULE}/apps/admin
 
 # ==============================================================================
 # SQLBoiler models generation
@@ -70,8 +70,9 @@ deps-cleancache:
 # Running from within docker compose
 
 up:
-	VCS_REF=${VCSREF} docker-compose -f docker-compose.yml -p masomo build
-	docker-compose -f docker-compose.yml -p masomo up --remove-orphans
+	MODULE=${MODULE} VCSREF=${VCSREF} docker-compose -f docker-compose.yml -p masomo build
+#	docker-compose -f docker-compose.yml -p masomo up --remove-orphans # fixme: SIGTERM not sent to container
+	docker-compose -f docker-compose.yml -p masomo run --rm --service-ports web
 
 down:
 	docker-compose -f docker-compose.yml -p masomo down --remove-orphans
