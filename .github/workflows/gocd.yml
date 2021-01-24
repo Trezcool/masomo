@@ -58,7 +58,7 @@ jobs:
         env:
           PACKAGES: "${{ env.MODULE }}/apps/admin ${{ env.MODULE }}/apps/api"
         with:
-          context: .
+          context: ./backend/
 #          file: ./Dockerfile
           push: true
           tags: |
