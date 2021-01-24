@@ -1,0 +1,88 @@
+name: GoCD
+
+on:
+  workflow_run:
+    workflows: [ 'GoCI' ]
+    branches: [ master ]
+    paths: [ 'backend/**' ]
+    types:
+      - completed
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  ENV: QA
+  env: qa
+  MODULE: github.com/trezcool/masomo
+
+jobs:
+  gobuild:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Go Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Restore cached packages
+        uses: actions/cache@v2
+        with:
+          path: ~/vendor
+          key: ${{ runner.os }}-vendor-cache-${{ hashFiles('~/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-vendor-cache-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: |
+            trezcool/masomo-api:${{ github.sha }}
+            trezcool/masomo-api:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,mode=max,dest=/tmp/.buildx-cache
+          build-args: |
+            MODULE=${{ env.MODULE }}
+            VCSREF=${{ github.sha }}
+            PACKAGES="${{ env.MODULE }}/apps/admin ${{ env.MODULE }}/apps/api"
+            BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”`
+
+  godeploy:
+    name: Go Deploy
+    needs: gobuild
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Deploy
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: play.yml
+          requirements: requirements.yml
+          directory: ./deploy/ansible/
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          vault_password: ${{ secrets.DEPLOY_VAULT_PASSWORD }}
+          options: |
+            --inventory inventories/${{ env.env }}
+            --extra-vars host=${{ env.env }}
+            --user ${{ secrets.DEPLOY_USER }}
+            --become
+            --verbose

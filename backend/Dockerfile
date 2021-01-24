@@ -28,3 +28,12 @@ COPY --from=build /app/bin/* /app/
 # Create app user
 RUN adduser -D app
 USER app
+
+ARG VCSREF
+ARG BUILD_DATE="now"
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="masomo" \
+      org.opencontainers.image.authors="Tresor Kambembo <kambembotresor@gmail.com>" \
+      org.opencontainers.image.source="https://github.com/trezcool/masomo/backend" \
+      org.opencontainers.image.revision="${VCSREF}" \
+      org.opencontainers.image.vendor="Trezcool"

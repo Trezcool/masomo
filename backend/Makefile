@@ -1,5 +1,6 @@
 MODULE := $(shell go list -m)
-VCSREF := $(shell cd .. && git describe --always --tags)
+VCSREF := $(git rev-parse --short HEAD)
+BUILD_DATE := $(date -u +”%Y-%m-%dT%H:%M:%SZ”)
 
 USERNAME?=""
 
@@ -69,8 +70,8 @@ deps-cleancache:
 # ==============================================================================
 # Running from within docker compose
 
-up:
-	MODULE=${MODULE} VCSREF=${VCSREF} docker-compose -f docker-compose.yml -p masomo build
+up: tidy
+	MODULE=${MODULE} VCSREF=${VCSREF} BUILD_DATE=${BUILD_DATE} docker-compose -f docker-compose.yml -p masomo build
 #	docker-compose -f docker-compose.yml -p masomo up --remove-orphans # fixme: SIGTERM not sent to container
 	docker-compose -f docker-compose.yml -p masomo run --rm --service-ports web
 
@@ -81,4 +82,17 @@ down:
 logs:
 	docker-compose -f docker-compose.yml -p masomo logs -f
 
-.PHONY: api admin logs test
+# ==============================================================================
+# Deploy with Ansible
+
+ENV?="qa"
+DEPLOY_USER?=""
+DEPLOY_SSH_KEY?=""
+deploy:
+	cd deploy/ansible
+	. venv/bin/activate
+	@ansible-playbook \
+		-i inventories/$(ENV) -e host=$(ENV) \
+		-u $(DEPLOY_USER) -b --private-key $(DEPLOY_SSH_KEY) play.yml
+
+.PHONY: api admin logs test deploy

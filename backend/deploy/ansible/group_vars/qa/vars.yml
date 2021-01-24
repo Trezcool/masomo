@@ -1,0 +1,6 @@
+secret_key: '{{ vault_secret_key }}'
+sendgrid_api_key: '{{ vault_sendgrid_api_key }}'
+rollbar_token: '{{ vault_rollbar_token }}'
+
+database_user: '{{ vault_database_user }}'
+database_password: '{{ vault_database_password }}'

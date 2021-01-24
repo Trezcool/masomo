@@ -1,0 +1,35 @@
+---
+- name: Set Docker Compose definition
+  community.docker.docker_compose:
+    project_name: masomo
+    pull: yes
+    definition:
+      version: '2'
+
+      services:
+        masomo-web:
+          container_name: masomo-web
+          image: trezcool/masomo-api:latest
+          ports:
+            - '8000:8000' # api
+            - '9000:9000' # debug
+          command: ./api
+          restart: unless-stopped
+          depends_on:
+            - db
+          environment:
+            ENV: QA
+            QA_DEBUG: '0'
+            QA_FRONTENDBASEURL: 'https://masomo.trezcool.com'
+            QA_SECRETKEY: '{{ secret_key }}'
+            QA_SENDGRIDAPIKEY: '{{ sendgrid_api_key }}'
+            QA_ROLLBARTOKEN: '{{ rollbar_token }}'
+            QA_DATABASE__HOST: db
+            QA_DATABASE__USER: '{{ database_user }}'
+            QA_DATABASE__PASSWORD: '{{ database_password }}'
+            QA_SERVER__JWTEXPIRATION: '10m0s'
+
+      networks:
+        default:
+          external:
+            name: shared_default

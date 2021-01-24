@@ -26,6 +26,12 @@ backend/apps/api/api
 # storage
 backend/storage/media/local/files/
 
+backend/vendor/
+
+# ansible
+backend/deploy/ansible/venv/
+backend/deploy/ansible/.vault_pass
+
 
 ############
 # Frontend #

@@ -37,8 +37,8 @@ jobs:
 #          working-directory: backend
 #          skip-go-installation: true
 
-  gobuild:
-    name: Go Build
+  gotest:
+    name: Go Test
 #    needs: golint
     runs-on: ubuntu-latest
     steps:
@@ -51,9 +51,17 @@ jobs:
         go-version: 1.16.0-beta1
         stable: false
 
-    - name: Get dependencies
+    - name: Vendor packages
       run: |
-        go get -v -t -d ./...
+        go mod vendor
+
+    - name: Cache packages
+      uses: actions/cache@v2
+      with:
+        path: ~/vendor
+        key: ${{ runner.os }}-vendor-cache-${{ hashFiles('~/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-vendor-cache-
 
     - name: Build
       run: |

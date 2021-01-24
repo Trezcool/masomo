@@ -16,6 +16,7 @@ services:
       args:
         - MODULE
         - VCSREF
+        - BUILD_DATE
         - PACKAGES=${MODULE}/apps/admin ${MODULE}/apps/api
     ports:
       - '8000:8000' # api
