@@ -63,7 +63,7 @@ jobs:
           build-args: |
             MODULE=${{ env.MODULE }}
             VCSREF=${{ github.sha }}
-            PACKAGES=${{ env.PACKAGES }}
+            PACKAGES=`$PACKAGES`
             BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”`
 
   godeploy:
