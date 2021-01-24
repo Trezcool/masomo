@@ -54,6 +54,7 @@ jobs:
         env:
           PACKAGES: "${{ env.MODULE }}/apps/admin ${{ env.MODULE }}/apps/api"
         with:
+          file: ./Dockerfile
           push: true
           tags: |
             trezcool/masomo-api:${{ github.sha }}
@@ -63,7 +64,7 @@ jobs:
           build-args: |
             MODULE=${{ env.MODULE }}
             VCSREF=${{ github.sha }}
-            PACKAGES=`$PACKAGES`
+            PACKAGES=${{ env.PACKAGES }}
             BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”`
 
   godeploy:
