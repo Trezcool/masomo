@@ -9,7 +9,7 @@
       services:
         masomo-web:
           container_name: masomo-web
-          image: trezcool/masomo-api:latest
+          image: trezcool/masomo-api
           ports:
             - '8000:8000' # api
             - '9000:9000' # debug

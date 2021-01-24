@@ -13,8 +13,7 @@ defaults:
     working-directory: backend
 
 env:
-  ENV: QA
-  env: qa
+  ENV: qa
   MODULE: github.com/trezcool/masomo
 
 jobs:
@@ -81,8 +80,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           vault_password: ${{ secrets.DEPLOY_VAULT_PASSWORD }}
           options: |
-            --inventory inventories/${{ env.env }}
-            --extra-vars host=${{ env.env }}
+            --inventory inventories/${{ env.ENV }}
+            --extra-vars host=${{ env.ENV }}
             --user ${{ secrets.DEPLOY_USER }}
             --become
             --verbose
