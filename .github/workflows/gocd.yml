@@ -54,7 +54,8 @@ jobs:
         env:
           PACKAGES: "${{ env.MODULE }}/apps/admin ${{ env.MODULE }}/apps/api"
         with:
-          file: ./Dockerfile
+          context: .
+#          file: ./Dockerfile
           push: true
           tags: |
             trezcool/masomo-api:${{ github.sha }}
