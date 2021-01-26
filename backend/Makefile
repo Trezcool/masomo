@@ -1,5 +1,5 @@
 MODULE := $(shell go list -m)
-VCSREF := $(git rev-parse --short HEAD)
+VCSREF := $(cd .. && git rev-parse --short HEAD)
 BUILD_DATE := $(date -u +”%Y-%m-%dT%H:%M:%SZ”)
 
 USERNAME?=""

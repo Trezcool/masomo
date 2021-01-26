@@ -1,6 +1,5 @@
 ---
 - name: Deploy to server
   hosts: '{{ host }}'
-#  debugger: on_failed
   roles:
     - '{{ host }}'
