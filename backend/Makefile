@@ -93,6 +93,7 @@ deploy:
 	. venv/bin/activate
 	@ansible-playbook \
 		-i inventories/$(ENV) -e host=$(ENV) \
+		--vault-password-file .vault_pass
 		-u $(DEPLOY_USER) -b --private-key $(DEPLOY_SSH_KEY) play.yml
 
 .PHONY: api admin logs test deploy

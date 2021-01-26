@@ -15,8 +15,6 @@
             - '9000:9000' # debug
           command: ./api
           restart: unless-stopped
-          depends_on:
-            - db
           environment:
             ENV: QA
             QA_DEBUG: '0'
