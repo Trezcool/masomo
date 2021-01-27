@@ -22,7 +22,7 @@
             QA_SECRETKEY: '{{ secret_key }}'
             QA_SENDGRIDAPIKEY: '{{ sendgrid_api_key }}'
             QA_ROLLBARTOKEN: '{{ rollbar_token }}'
-            QA_DATABASE__HOST: db
+            QA_DATABASE__HOST: postgres
             QA_DATABASE__USER: '{{ database_user }}'
             QA_DATABASE__PASSWORD: '{{ database_password }}'
             QA_SERVER__JWTEXPIRATION: '10m0s'
