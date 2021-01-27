@@ -1,6 +1,7 @@
 # MASOMO
 
 ![Build Status](https://github.com/Trezcool/masomo/workflows/GoCI/badge.svg)
+![Build Status](https://github.com/Trezcool/masomo/workflows/GoCD/badge.svg)
 [![codecov](https://codecov.io/gh/Trezcool/masomo/branch/master/graph/badge.svg?token=0TUVPS8VK6)](https://codecov.io/gh/Trezcool/masomo)
 ![Go Version](https://img.shields.io/badge/Go-v1.16beta1-61CFDD.svg?style=flat)
 ![Vue Version](https://img.shields.io/badge/VueJS-v3.0-42b983.svg?style=flat)
