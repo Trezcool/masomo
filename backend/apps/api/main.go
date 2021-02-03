@@ -51,7 +51,7 @@ func main() {
 	if core.Conf.Debug {
 		mailSvc = emailsvc.NewConsoleService()
 	} else {
-		mailSvc = emailsvc.NewSendgridService()
+		mailSvc = emailsvc.NewSendgridService(logger)
 	}
 	usrSvc := user.NewService(db, boiledrepos.NewUserRepository(db), mailSvc)
 

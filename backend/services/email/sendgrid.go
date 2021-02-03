@@ -1,11 +1,10 @@
 package emailsvc
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"net/mail"
 
-	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
 	sgmail "github.com/sendgrid/sendgrid-go/helpers/mail"
 
@@ -21,17 +20,18 @@ type sendgridService struct {
 	key        string
 	from       *sgmail.Email
 	subjPrefix string
-	//logger
+	logger     core.Logger
 }
 
 var _ core.EmailService = (*sendgridService)(nil)
 
-func NewSendgridService() *sendgridService {
+func NewSendgridService(logger core.Logger) *sendgridService {
 	from := core.Conf.DefaultFromEmail()
 	return &sendgridService{
 		key:        core.Conf.SendgridApiKey,
 		from:       sgmail.NewEmail(from.Name, from.Address),
 		subjPrefix: "[" + core.Conf.AppName + "] ",
+		logger:     logger,
 	}
 }
 
@@ -40,7 +40,7 @@ func (svc sendgridService) SendMessages(messages ...*core.EmailMessage) {
 		msg := msg
 		go func() {
 			if err := msg.Render(); err != nil {
-				panic(err) // todo: logger
+				svc.logger.Error(fmt.Sprintf("rendering email: %v", err), err)
 			}
 			if msg.HasRecipients() && (msg.HasContent() || msg.HasAttachments()) {
 				svc.send(*msg)
@@ -99,11 +99,10 @@ func (svc sendgridService) send(msg core.EmailMessage) {
 
 	res, err := sendgrid.API(req)
 	if err != nil {
-		log.Printf("%+v", errors.Wrap(err, "sending email"))
+		svc.logger.Error(fmt.Sprintf("sending email: %v", err), err)
 	} else if res.StatusCode >= http.StatusBadRequest {
-		log.Printf("%+v", errors.Errorf("sending email - status: %d - Body: %s", res.StatusCode, res.Body))
+		svc.logger.Error(fmt.Sprintf("sending email - status: %d - Body: %s", res.StatusCode, res.Body))
 	}
-	// todo: loggerSvc
 	// todo: retries ??
 	// todo webhook to handle failed mails ??
 }
