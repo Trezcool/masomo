@@ -1,7 +1,7 @@
 # ==============================================================================
 # Build Stage
 
-FROM golang:1.16beta1 as build
+FROM golang:1.16rc1 as build
 
 ARG MODULE
 ARG VCSREF
