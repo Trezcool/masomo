@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
-	"log"
 	"regexp"
 	"sort"
 	"strings"
 	"unicode"
 
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 	"github.com/pmezard/go-difflib/difflib"
@@ -46,53 +46,52 @@ var (
 
 	pwdNoCommonTag  = "pwdnocommon"
 	pwdNoCommonText = "password is too common"
-	commonPasswords = loadCommonPasswords()
+	commonPasswords []string
 )
 
-// register validators
-func init() {
-	_ = core.Validate.RegisterValidation(allRolesTag, allRolesValidation)
-	core.RegisterCustomTranslation(allRolesTag, allRolesText)
+// InitValidators registers validators
+func InitValidators(validate *validator.Validate, translator ut.Translator) {
+	_ = validate.RegisterValidation(allRolesTag, allRolesValidation)
+	core.RegisterCustomTranslation(validate, translator, allRolesTag, allRolesText)
 
-	core.Validate.RegisterStructValidation(userStructValidation, NewUser{})
-	core.Validate.RegisterStructValidation(userStructValidation, UpdateUser{})
-	core.Validate.RegisterStructValidation(userStructValidation, ResetUserPassword{})
-	core.RegisterCustomTranslation(usernameOrEmailTag, usernameOrEmailText)
-	core.RegisterCustomTranslation(pwdMinLenTag, pwdMinLenText)
-	core.RegisterCustomTranslation(pwdNoSpaceTag, pwdNoSpaceText)
-	core.RegisterCustomTranslation(pwdNotAllNumTag, pwdNotAllNumText)
-	core.RegisterCustomTranslation(pwdComplexityTag, pwdComplexityText)
-	core.RegisterCustomTranslation(pwdAttrSimTag, pwdAttrSimText)
-	core.RegisterCustomTranslation(pwdNoCommonTag, pwdNoCommonText)
+	validate.RegisterStructValidation(userStructValidation, NewUser{})
+	validate.RegisterStructValidation(userStructValidation, UpdateUser{})
+	validate.RegisterStructValidation(userStructValidation, ResetUserPassword{})
+	core.RegisterCustomTranslation(validate, translator, usernameOrEmailTag, usernameOrEmailText)
+	core.RegisterCustomTranslation(validate, translator, pwdMinLenTag, pwdMinLenText)
+	core.RegisterCustomTranslation(validate, translator, pwdNoSpaceTag, pwdNoSpaceText)
+	core.RegisterCustomTranslation(validate, translator, pwdNotAllNumTag, pwdNotAllNumText)
+	core.RegisterCustomTranslation(validate, translator, pwdComplexityTag, pwdComplexityText)
+	core.RegisterCustomTranslation(validate, translator, pwdAttrSimTag, pwdAttrSimText)
+	core.RegisterCustomTranslation(validate, translator, pwdNoCommonTag, pwdNoCommonText)
 }
 
-func loadCommonPasswords() []string {
-	pwds := make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
+func LoadCommonPasswords(logger core.Logger) {
+	commonPasswords = make([]string, 0, 19727) // 19727: number of total pwds in /assets/common-passwords.txt.gz
 	pwdAssetPath := "assets/common-passwords.txt.gz"
 
 	file, err := appfs.FS.Open(pwdAssetPath)
 	if err != nil {
-		log.Printf("%+v", errors.Wrap(err, "opening "+pwdAssetPath))
-		return nil
+		logger.Error(errors.Wrap(err, "opening "+pwdAssetPath).Error(), err)
+		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	gzRdr, err := gzip.NewReader(file)
 	if err != nil {
-		log.Printf("%+v", errors.Wrap(err, "creating gzip reader"))
-		return nil
+		logger.Error(errors.Wrap(err, "creating gzip reader").Error(), err)
+		return
 	}
 
 	scanner := bufio.NewScanner(gzRdr)
 	for scanner.Scan() {
-		pwds = append(pwds, strings.TrimSpace(scanner.Text()))
+		commonPasswords = append(commonPasswords, strings.TrimSpace(scanner.Text()))
 	}
 	if scanner.Err() != nil {
-		log.Printf("%+v", errors.Wrap(err, "scanning "+pwdAssetPath))
+		logger.Error(errors.Wrap(err, "scanning "+pwdAssetPath).Error(), err)
 	}
 
-	sort.Strings(pwds)
-	return pwds
+	sort.Strings(commonPasswords)
 }
 
 // Custom Validators
@@ -113,7 +112,7 @@ func allRolesValidation(fl validator.FieldLevel) bool {
 	return false
 }
 
-// userStructValidation does struct level validation on NewUser and UpdateUser structs.
+// userStructValidation does struct level validation on NewUser, UpdateUser and ResetUserPassword structs.
 func userStructValidation(sl validator.StructLevel) {
 	switch usr := sl.Current().Interface().(type) {
 	case NewUser:

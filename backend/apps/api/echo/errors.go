@@ -3,6 +3,7 @@ package echoapi
 import (
 	"net/http"
 
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -23,7 +24,7 @@ var (
 
 // newAppHTTPErrorHandler returns a custom echo.HTTPErrorHandler that knows how to handle our errors.
 // signalShutdown is called in order to gracefully shutdown the Server whenever a core.shutdown error is caught.
-func newAppHTTPErrorHandler(logger core.Logger, signalShutdown func()) echo.HTTPErrorHandler {
+func newAppHTTPErrorHandler(logger core.Logger, translator ut.Translator, signalShutdown func()) echo.HTTPErrorHandler {
 	return func(err error, ctx echo.Context) {
 		var code int
 		var message interface{}
@@ -45,7 +46,7 @@ func newAppHTTPErrorHandler(logger core.Logger, signalShutdown func()) echo.HTTP
 		case validator.ValidationErrors:
 			fldErrs := make(map[string]string, len(origErr))
 			for _, vErr := range origErr {
-				fldErrs[vErr.Field()] = vErr.Translate(core.Translator)
+				fldErrs[vErr.Field()] = vErr.Translate(translator)
 			}
 			code = http.StatusBadRequest
 			message = fldErrs

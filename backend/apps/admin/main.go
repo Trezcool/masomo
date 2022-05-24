@@ -14,21 +14,24 @@ import (
 func main() {
 	defer os.Exit(0)
 
+	conf := core.NewConfig()
+
 	// set up logger
 	stdLogger := log.New(os.Stdout, "ADMIN : ", log.LstdFlags|log.Lmicroseconds|log.Lshortfile)
-	logger := logsvc.NewRollbarLogger(stdLogger)
-	logger.SetEnabled(!core.Conf.Debug)
+	logger := logsvc.NewRollbarLogger(stdLogger, conf)
+	logger.Enable(!conf.Debug)
 
 	// set up DB
-	db, err := database.Open()
+	db, err := database.Open(conf)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("opening database: %v", err), err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// start CLI
 	cli := commandLine{
 		db:      db,
+		conf:    conf,
 		usrRepo: boiledrepos.NewUserRepository(db),
 	}
 	if err = cli.run(os.Args); err != nil {

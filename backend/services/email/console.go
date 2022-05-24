@@ -28,10 +28,10 @@ type consoleService struct {
 
 var _ core.EmailService = (*consoleService)(nil)
 
-func NewConsoleService() *consoleService {
+func NewConsoleService(conf *core.Config) *consoleService {
 	return &consoleService{
-		defaultFromEmail: core.Conf.DefaultFromEmail(),
-		subjPrefix:       "[" + core.Conf.AppName + "] ",
+		defaultFromEmail: conf.DefaultFromEmail(),
+		subjPrefix:       "[" + conf.AppName + "] ",
 	}
 }
 
@@ -68,11 +68,11 @@ func (svc consoleService) send(msg core.EmailMessage) {
 
 	var mixedW *multipart.Writer
 	altW := multipart.NewWriter(body)
-	defer altW.Close()
+	defer func() { _ = altW.Close() }()
 
 	if msg.HasAttachments() {
 		mixedW = multipart.NewWriter(body)
-		defer mixedW.Close()
+		defer func() { _ = mixedW.Close() }()
 		_, _ = fmt.Fprintf(body, "Content-Type: multipart/mixed\r\n")
 		_, _ = fmt.Fprintf(body, "Content-Type: boundary=%s\r\n", mixedW.Boundary())
 	} else {
@@ -131,11 +131,11 @@ type consoleServiceMock struct {
 	consoleService
 }
 
-func NewConsoleServiceMock() *consoleServiceMock {
+func NewConsoleServiceMock(conf *core.Config) *consoleServiceMock {
 	return &consoleServiceMock{
 		consoleService: consoleService{
-			defaultFromEmail: core.Conf.DefaultFromEmail(),
-			subjPrefix:       "[" + core.Conf.AppName + "] ",
+			defaultFromEmail: conf.DefaultFromEmail(),
+			subjPrefix:       "[" + conf.AppName + "] ",
 			disableOutput:    true,
 		},
 	}

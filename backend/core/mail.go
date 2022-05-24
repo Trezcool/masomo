@@ -6,7 +6,6 @@ import (
 	htmltmpl "html/template"
 	"io"
 	"io/fs"
-	"log"
 	"net/http"
 	"net/mail"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"github.com/trezcool/masomo/fs"
 )
 
-var templates = parseTemplates()
+var templates tmplCache
 
 type (
 	tmplCacheEntry map[string]interface{}    // {ext: *Template}
@@ -44,6 +43,8 @@ type (
 		TemplateData interface{}
 		TextContent  string
 		HTMLContent  string
+
+		Conf *Config
 	}
 
 	ContextData struct {
@@ -60,7 +61,7 @@ type (
 
 func (m *EmailMessage) getContextData() ContextData {
 	return ContextData{
-		FrontendBaseURL: Conf.FrontendBaseURL,
+		FrontendBaseURL: m.Conf.FrontendBaseURL,
 		Data:            m.TemplateData,
 	}
 }
@@ -141,7 +142,7 @@ func (m *EmailMessage) Attach(r io.Reader, filename string, ct ...string) error 
 	if _, err := encoder.Write(content); err != nil {
 		return errors.Wrap(err, "encoding content")
 	}
-	encoder.Close()
+	_ = encoder.Close()
 
 	if len(ct) > 0 {
 		at.ContentType = ct[0]
@@ -157,7 +158,7 @@ func (m *EmailMessage) AttachFile(path string, contentType ...string) error {
 	if err != nil {
 		return errors.Wrap(err, "opening file")
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return errors.Wrap(m.Attach(f, filepath.Base(path), contentType...), "attaching file")
 }
 
@@ -165,13 +166,13 @@ func (m *EmailMessage) HasRecipients() bool  { return len(m.To) > 0 }
 func (m *EmailMessage) HasContent() bool     { return (m.TextContent != "") || (m.HTMLContent != "") }
 func (m *EmailMessage) HasAttachments() bool { return len(m.Attachments) > 0 }
 
-func parseTemplates() tmplCache {
-	cache := make(tmplCache)
+func ParseEmailTemplates(logger Logger) {
+	templates = make(tmplCache)
 
 	rp := "assets/templates/email/"
 	fps, err := fs.Glob(appfs.FS, rp+"*")
 	if err != nil {
-		log.Fatalf("%+v", errors.Wrap(err, "globbing"))
+		logger.Fatal(errors.Wrap(err, "globbing").Error(), err)
 	}
 
 	for _, fp := range fps {
@@ -181,24 +182,23 @@ func parseTemplates() tmplCache {
 			continue
 		}
 		name := fname[:strings.LastIndex(fname, ".")]
-		entry, ok := cache[name]
+		entry, ok := templates[name]
 		if !ok {
-			cache[name] = make(tmplCacheEntry)
-			entry = cache[name]
+			templates[name] = make(tmplCacheEntry)
+			entry = templates[name]
 		}
 		if ext == ".txt" {
 			tmpl, err := texttmpl.ParseFS(appfs.FS, rp+"base.txt", fp)
 			if err != nil {
-				log.Fatalf("%+v", errors.Wrap(err, "parsing .txt files"))
+				logger.Fatal(errors.Wrap(err, "parsing .txt files").Error(), err)
 			}
 			entry[ext] = tmpl
 		} else {
 			tmpl, err := htmltmpl.ParseFS(appfs.FS, rp+"base.gohtml", fp)
 			if err != nil {
-				log.Fatalf("%+v", errors.Wrap(err, "parsing .gohtml files"))
+				logger.Fatal(errors.Wrap(err, "parsing .gohtml files").Error(), err)
 			}
 			entry[ext] = tmpl
 		}
 	}
-	return cache
 }

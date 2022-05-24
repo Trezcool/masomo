@@ -25,12 +25,12 @@ type sendgridService struct {
 
 var _ core.EmailService = (*sendgridService)(nil)
 
-func NewSendgridService(logger core.Logger) *sendgridService {
-	from := core.Conf.DefaultFromEmail()
+func NewSendgridService(conf *core.Config, logger core.Logger) *sendgridService {
+	from := conf.DefaultFromEmail()
 	return &sendgridService{
-		key:        core.Conf.SendgridApiKey,
+		key:        conf.SendgridApiKey,
 		from:       sgmail.NewEmail(from.Name, from.Address),
-		subjPrefix: "[" + core.Conf.AppName + "] ",
+		subjPrefix: "[" + conf.AppName + "] ",
 		logger:     logger,
 	}
 }

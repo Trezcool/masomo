@@ -17,24 +17,24 @@ import (
 	"github.com/trezcool/masomo/storage/database/sqlboiler/models"
 )
 
-type userRepository struct {
-	exec core.DBExecutor
+type UserRepository struct {
+	db core.DB
 }
 
-var _ user.Repository = (*userRepository)(nil) // interface compliance check
+var _ user.Repository = (*UserRepository)(nil) // interface compliance check
 
-func NewUserRepository(exec core.DBExecutor) *userRepository {
-	return &userRepository{exec: exec}
+func NewUserRepository(db core.DB) *UserRepository {
+	return &UserRepository{db: db}
 }
 
-func (repo userRepository) getExec(svcExec []core.DBExecutor) core.DBExecutor {
+func (repo UserRepository) getExec(svcExec []core.DBExecutor) core.DBExecutor {
 	if len(svcExec) > 0 {
 		return svcExec[0]
 	}
-	return repo.exec
+	return repo.db
 }
 
-func (repo userRepository) boil(usr user.User) *models.User {
+func (repo UserRepository) boil(usr user.User) *models.User {
 	u := &models.User{
 		Name:         null.NewString(usr.Name, usr.Name != ""),
 		Username:     null.NewString(usr.Username, usr.Username != ""),
@@ -52,7 +52,7 @@ func (repo userRepository) boil(usr user.User) *models.User {
 	return u
 }
 
-func (repo userRepository) unboil(usr *models.User) user.User {
+func (repo UserRepository) unboil(usr *models.User) user.User {
 	if usr == nil {
 		return user.User{}
 	}
@@ -70,7 +70,7 @@ func (repo userRepository) unboil(usr *models.User) user.User {
 	}
 }
 
-func (repo userRepository) unboilSlice(slice models.UserSlice) []user.User {
+func (repo UserRepository) unboilSlice(slice models.UserSlice) []user.User {
 	users := make([]user.User, 0, len(slice))
 	for _, u := range slice {
 		users = append(users, repo.unboil(u))
@@ -79,16 +79,16 @@ func (repo userRepository) unboilSlice(slice models.UserSlice) []user.User {
 }
 
 // trapNoRowsErr maps psql "no rows" err to user.ErrNotFound
-func (repo userRepository) trapNoRowsErr(err error, msg string) error {
+func (repo UserRepository) trapNoRowsErr(err error, msg string) error {
 	if err == sql.ErrNoRows {
 		return user.ErrNotFound
 	}
 	return errors.Wrap(err, msg)
 }
 
-func (repo userRepository) CheckUsernameUniqueness(ctx context.Context, username, email string, excludedUsers []user.User, exec ...core.DBExecutor) error {
+func (repo UserRepository) CheckUsernameUniqueness(ctx context.Context, username, email string, excludedUsers []user.User, exec ...core.DBExecutor) error {
 	mods := []qm.QueryMod{
-		qm.Expr(qm.Where(fmt.Sprintf("%s = ? OR %s = ?", models.UserColumns.Username, models.UserColumns.Email), username, email)),
+		qm.Where(fmt.Sprintf("%s = ? OR %s = ?", models.UserColumns.Username, models.UserColumns.Email), username, email),
 	}
 	if len(excludedUsers) > 0 {
 		ids := make([]string, 0, len(excludedUsers))
@@ -108,7 +108,7 @@ func (repo userRepository) CheckUsernameUniqueness(ctx context.Context, username
 	return nil
 }
 
-func (repo userRepository) CreateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
+func (repo UserRepository) CreateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
 	usr.ID = uuid.New().String()
 	u := repo.boil(usr)
 	if err := u.Insert(ctx, repo.getExec(exec), boil.Infer()); err != nil {
@@ -117,18 +117,18 @@ func (repo userRepository) CreateUser(ctx context.Context, usr user.User, exec .
 	return repo.unboil(u), nil
 }
 
-func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]user.User, error) {
+func (repo UserRepository) QueryUsers(ctx context.Context, filter *user.QueryFilter, ordering []core.DBOrdering, exec ...core.DBExecutor) ([]user.User, error) {
 	var mods []qm.QueryMod
 
 	if filter != nil {
 		// users with Name, Username or Email matching the search keyword
 		if filter.Search != "" {
 			val := "%" + filter.Search + "%"
-			mods = append(mods, qm.Expr(qm.Where(
+			mods = append(mods, qm.Where(
 				fmt.Sprintf(
 					"%s ILIKE ? OR %s ILIKE ? OR %s ILIKE ?",
 					models.UserColumns.Name, models.UserColumns.Username, models.UserColumns.Email),
-				val, val, val)))
+				val, val, val))
 		}
 		// users with any role that starts with any of the provided roles
 		if len(filter.Roles) > 0 {
@@ -167,7 +167,7 @@ func (repo userRepository) QueryUsers(ctx context.Context, filter *user.QueryFil
 	return repo.unboilSlice(users), nil
 }
 
-func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, exec ...core.DBExecutor) (user.User, error) {
+func (repo UserRepository) GetUser(ctx context.Context, filter user.GetFilter, exec ...core.DBExecutor) (user.User, error) {
 	var usr *models.User
 	var err error
 	exe := repo.getExec(exec)
@@ -212,7 +212,7 @@ func (repo userRepository) GetUser(ctx context.Context, filter user.GetFilter, e
 	return repo.unboil(usr), nil
 }
 
-func (repo userRepository) UpdateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
+func (repo UserRepository) UpdateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
 	u := repo.boil(usr)
 	if _, err := u.Update(ctx, repo.getExec(exec), boil.Infer()); err != nil {
 		return user.User{}, errors.Wrap(err, "updating user")
@@ -220,14 +220,14 @@ func (repo userRepository) UpdateUser(ctx context.Context, usr user.User, exec .
 	return repo.unboil(u), nil
 }
 
-func (repo userRepository) UpdateOrCreateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
+func (repo UserRepository) UpdateOrCreateUser(ctx context.Context, usr user.User, exec ...core.DBExecutor) (user.User, error) {
 	if usr.ID == "" {
 		return repo.CreateUser(ctx, usr, exec...)
 	}
 	return repo.UpdateUser(ctx, usr, exec...)
 }
 
-func (repo userRepository) DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error) {
+func (repo UserRepository) DeleteUsersByID(ctx context.Context, ids []string, exec ...core.DBExecutor) (int, error) {
 	cnt, err := models.Users(models.UserWhere.ID.IN(ids)).DeleteAll(ctx, repo.getExec(exec))
 	if err != nil {
 		return 0, errors.Wrap(err, "deleting users")

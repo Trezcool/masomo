@@ -4,54 +4,66 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"syscall"
 
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"go.uber.org/dig"
 
 	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
 )
 
 type (
-	Deps struct {
-		Logger  core.Logger
-		UserSvc user.Service
+	ServerDeps struct {
+		dig.In     `wire:"-"`
+		Conf       *core.Config
+		Logger     core.Logger
+		UserSvc    user.ServiceInterface
+		Validate   *validator.Validate
+		Translator ut.Translator
 	}
 
 	Server struct {
-		addr     string
-		deps     *Deps
+		deps     ServerDeps
 		app      *echo.Echo
-		shutdown chan<- os.Signal
+		shutdown chan os.Signal
+		errors   chan error
 	}
 )
 
-func NewServer(shutdown chan<- os.Signal, deps *Deps) *Server {
+func NewServer(deps ServerDeps) *Server {
 	s := &Server{
-		addr:     core.Conf.Server.Address(),
-		deps:     deps,
-		app:      echo.New(),
-		shutdown: shutdown,
+		deps:   deps,
+		app:    echo.New(),
+		errors: make(chan error, 1),
 	}
 	s.setup()
 	return s
 }
 
 func (s *Server) setup() {
+	// channel of shutdown signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	s.shutdown = shutdown
+
 	s.app.Pre(middleware.RemoveTrailingSlash())
 	// do not print request logs in TEST mode
-	if !core.Conf.TestMode {
+	if !s.deps.Conf.TestMode {
 		s.app.Use(middleware.Logger())
 	}
 	// do not recover in DEV|TEST mode
-	if !(core.Conf.Debug || core.Conf.TestMode) {
+	if !(s.deps.Conf.Debug || s.deps.Conf.TestMode) {
 		s.app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{LogLevel: log.ERROR}))
 	}
 
-	s.app.HTTPErrorHandler = newAppHTTPErrorHandler(s.deps.Logger, s.SignalShutdown)
-	s.app.Debug = core.Conf.Debug
+	s.app.HTTPErrorHandler = newAppHTTPErrorHandler(s.deps.Logger, s.deps.Translator, s.signalShutdown)
+	s.app.Debug = s.deps.Conf.Debug
 
 	// todo: health endpoints according to RFC 5785
 	// "/.well-known/health-check"
@@ -59,18 +71,30 @@ func (s *Server) setup() {
 	s.app.GET("/", home) // todo: redirect to "/api" (OpenAPI docs)
 
 	grp := s.app.Group("/api")
+
+	initAuth(s.deps.Conf)
 	jwt := middleware.JWTWithConfig(appJWTConfig)
 
-	registerUserAPI(grp, jwt, s.deps.UserSvc)
+	registerUserAPI(grp, jwt, s.deps.UserSvc, s.deps.Validate, s.deps.Translator)
 
 	// TODO: swagger !!
 }
 
-func (s *Server) Start() error {
-	return s.app.Start(s.addr)
+func (s *Server) Start() {
+	if err := s.app.Start(s.deps.Conf.Server.Address()); err != nil {
+		s.errors <- err
+	}
 }
 
-func (s *Server) SignalShutdown() {
+func (s *Server) Errors() <-chan error {
+	return s.errors
+}
+
+func (s *Server) ShutdownSignal() <-chan os.Signal {
+	return s.shutdown
+}
+
+func (s *Server) signalShutdown() {
 	s.shutdown <- syscall.SIGTERM
 }
 

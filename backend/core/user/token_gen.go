@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
-	"github.com/trezcool/masomo/core"
 )
 
 var (
@@ -78,7 +76,7 @@ func verifyToken(usr User, token string) error {
 	}
 
 	// check that the timestamp is within limit
-	if (_numDaysSince2001(time.Now()) - ts) > int(core.Conf.PasswordResetTimeout/(24*time.Hour)) {
+	if (_numDaysSince2001(time.Now()) - ts) > int(passwordResetTimeout.Hours()/24) {
 		return errTokenExpired
 	}
 	return nil
@@ -99,7 +97,7 @@ func _numDaysSince2001(t time.Time) int {
 }
 
 func _sign(val []byte) (string, error) {
-	key := sha256.Sum256(append(salt, core.Conf.SecretKey...))
+	key := sha256.Sum256(append(salt, secretKey...))
 	h := hmac.New(sha256.New, key[:])
 	if _, err := h.Write(val); err != nil {
 		return "", errors.Wrap(err, "hashing")

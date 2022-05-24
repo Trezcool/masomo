@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/trezcool/masomo/core"
@@ -139,12 +140,12 @@ type NewUser struct {
 	Roles           []string `json:"roles" validate:"omitempty,allroles"`
 }
 
-func (nu *NewUser) Validate(svc Service) error {
+func (nu *NewUser) Validate(validate *validator.Validate, svc ServiceInterface) error {
 	nu.Name = core.CleanString(nu.Name)
 	nu.Username = core.CleanString(nu.Username, true /* lower */)
 	nu.Email = core.CleanString(nu.Email, true /* lower */)
 
-	if err := core.Validate.Struct(nu); err != nil {
+	if err := validate.Struct(nu); err != nil {
 		return err
 	}
 	return svc.CheckUniqueness(nu.Username, nu.Email)
@@ -161,7 +162,7 @@ type UpdateUser struct {
 	PasswordConfirm string   `json:"password_confirm" validate:"required_with=Password,eqfield=Password"`
 }
 
-func (uu *UpdateUser) Validate(origUsr User, svc Service) error {
+func (uu *UpdateUser) Validate(origUsr User, validate *validator.Validate, svc ServiceInterface) error {
 	name := core.CleanString(uu.Name)
 	if name != "" {
 		uu.Name = name
@@ -183,7 +184,7 @@ func (uu *UpdateUser) Validate(origUsr User, svc Service) error {
 		uu.Email = origUsr.Email
 	}
 
-	if err := core.Validate.Struct(uu); err != nil {
+	if err := validate.Struct(uu); err != nil {
 		return err
 	}
 	return svc.CheckUniqueness(uu.Username, uu.Email, origUsr)
@@ -196,7 +197,7 @@ type ResetUserPassword struct {
 	PasswordConfirm string `json:"password_confirm,omitempty" validate:"required,eqfield=Password"`
 }
 
-func (rp ResetUserPassword) Validate() error { return core.Validate.Struct(rp) }
+func (rp ResetUserPassword) Validate(validate *validator.Validate) error { return validate.Struct(rp) }
 
 type QueryFilter struct {
 	Search      string    `query:"search"`

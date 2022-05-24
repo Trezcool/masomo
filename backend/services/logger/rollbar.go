@@ -10,27 +10,27 @@ import (
 	"github.com/trezcool/masomo/core/user"
 )
 
-type rollbarLogger struct {
+type RollbarLogger struct {
 	std *log.Logger
 }
 
-var _ core.Logger = (*rollbarLogger)(nil)
+var _ core.Logger = (*RollbarLogger)(nil)
 
-func NewRollbarLogger(std *log.Logger) *rollbarLogger {
-	rollbar.SetToken(core.Conf.RollbarToken)
-	rollbar.SetEnvironment(core.Conf.Env)
-	rollbar.SetServerHost(core.Conf.Server.Host)
-	rollbar.SetCodeVersion(core.Conf.Build)
+func NewRollbarLogger(std *log.Logger, conf *core.Config) *RollbarLogger {
+	rollbar.SetToken(conf.RollbarToken)
+	rollbar.SetEnvironment(conf.Env)
+	rollbar.SetServerHost(conf.Server.Host)
+	rollbar.SetCodeVersion(conf.Build)
 	rollbar.SetStackTracer(errors.StackTracer)
-	return &rollbarLogger{std: std}
+	return &RollbarLogger{std: std}
 }
 
-func (l rollbarLogger) SetEnabled(enabled bool) {
+func (l RollbarLogger) Enable(enabled bool) {
 	rollbar.SetEnabled(enabled)
 }
 
 // expected fmt: msg | error, map[string]interface{}, user.User
-func (l rollbarLogger) prepare(msg string, args []interface{}) []interface{} {
+func (l RollbarLogger) prepare(msg string, args []interface{}) []interface{} {
 	var usrSet bool
 	newArgs := make([]interface{}, 0, len(args)+1)
 	newArgs = append(newArgs, msg)
@@ -51,35 +51,35 @@ func (l rollbarLogger) prepare(msg string, args []interface{}) []interface{} {
 	return newArgs
 }
 
-func (l rollbarLogger) print(msg string, args []interface{}) {
+func (l RollbarLogger) print(msg string, args []interface{}) {
 	l.std.Println(msg)
 	for _, arg := range args {
 		l.std.Printf("%+v\n", arg)
 	}
 }
 
-func (l rollbarLogger) Debug(msg string, args ...interface{}) {
+func (l RollbarLogger) Debug(msg string, args ...interface{}) {
 	rollbar.Debug(l.prepare(msg, args)...)
 	l.print(msg, args)
 }
 
-func (l rollbarLogger) Info(msg string, args ...interface{}) {
+func (l RollbarLogger) Info(msg string, args ...interface{}) {
 	rollbar.Info(l.prepare(msg, args)...)
 	l.print(msg, args)
 }
 
-func (l rollbarLogger) Warn(msg string, args ...interface{}) {
+func (l RollbarLogger) Warn(msg string, args ...interface{}) {
 	rollbar.Warning(l.prepare(msg, args)...)
 	l.print(msg, args)
 }
 
-func (l rollbarLogger) Error(msg string, args ...interface{}) {
+func (l RollbarLogger) Error(msg string, args ...interface{}) {
 	rollbar.Error(l.prepare(msg, args)...)
 	l.print(msg, args)
 }
 
-func (l rollbarLogger) Fatal(msg string, args ...interface{}) {
+func (l RollbarLogger) Fatal(msg string, args ...interface{}) {
 	rollbar.Critical(l.prepare(msg, args)...)
 	l.print(msg, args)
-	l.std.Fatal(msg) // todo: delay ?
+	l.std.Fatal(msg)
 }

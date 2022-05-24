@@ -1,0 +1,47 @@
+### ============================ Home ============================ ###
+GET http://localhost:8000
+
+
+### ============================ User.Login ============================ ###
+### Admin:
+###   id: 324c4b2a-c69b-498d-8c4a-c1e7fca6cb98
+###   creds: admin@trezcool.com : LolC@t123
+###   token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBY2FkZW1pYSIsImV4cCI6MTY1MzUyNzY0OSwiaWF0IjoxNjUyOTIyODQ5LCJpc3MiOiJNYXNvbW8iLCJzdWIiOiIzMjRjNGIyYS1jNjliLTQ5OGQtOGM0YS1jMWU3ZmNhNmNiOTgiLCJvcmlhdCI6MTY1MjkyMjg0OSwiZW1haWwiOiJhZG1pbkB0cmV6Y29vbC5jb20iLCJpc19zdHVkZW50Ijp0cnVlLCJpc190ZWFjaGVyIjp0cnVlLCJpc19hZG1pbiI6dHJ1ZSwicm9sZXMiOlsiYWRtaW46IiwiYWRtaW46b3duZXIiLCJhZG1pbjpwcmluY2lwYWwiLCJ0ZWFjaGVyOiIsInN0dWRlbnQ6Il19.NZYoS5JVegkYjH6bu-QPYkfwG0tqUHytDXqJlt8koJA
+### Student:
+###   id: 9d393917-fb84-44ba-add3-5ecb80ab5059
+###   creds: trezcool : LolC@t123
+###   token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBY2FkZW1pYSIsImV4cCI6MTY1Mjc3NTIxNSwiaWF0IjoxNjUyMTcwNDE1LCJpc3MiOiJNYXNvbW8iLCJzdWIiOiI5ZDM5MzkxNy1mYjg0LTQ0YmEtYWRkMy01ZWNiODBhYjUwNTkiLCJvcmlhdCI6MTY1MjE3MDQxNSwidXNlcm5hbWUiOiJ0cmV6Y29vbCIsImVtYWlsIjoia2FtYmVtYm90cmVzb3JAZ21haWwuY29tIiwiaXNfc3R1ZGVudCI6dHJ1ZSwicm9sZXMiOlsic3R1ZGVudDoiXX0.3lYSrKgHLwTPotDEQ92QW5Uk5mlO1V2gT22rM337Yd8
+POST http://localhost:8000/api/users/login
+Content-Type: application/json
+
+{
+  "username": "admin@trezcool.com",
+  "password": "LolC@t123"
+}
+
+
+### ============================ Users ============================ ###
+GET http://localhost:8000/api/users
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBY2FkZW1pYSIsImV4cCI6MTY1MzUyNzY0OSwiaWF0IjoxNjUyOTIyODQ5LCJpc3MiOiJNYXNvbW8iLCJzdWIiOiIzMjRjNGIyYS1jNjliLTQ5OGQtOGM0YS1jMWU3ZmNhNmNiOTgiLCJvcmlhdCI6MTY1MjkyMjg0OSwiZW1haWwiOiJhZG1pbkB0cmV6Y29vbC5jb20iLCJpc19zdHVkZW50Ijp0cnVlLCJpc190ZWFjaGVyIjp0cnVlLCJpc19hZG1pbiI6dHJ1ZSwicm9sZXMiOlsiYWRtaW46IiwiYWRtaW46b3duZXIiLCJhZG1pbjpwcmluY2lwYWwiLCJ0ZWFjaGVyOiIsInN0dWRlbnQ6Il19.NZYoS5JVegkYjH6bu-QPYkfwG0tqUHytDXqJlt8koJA
+
+
+### ============================ User ============================ ###
+GET http://localhost:8000/api/users/9d393917-fb84-44ba-add3-5ecb80ab5059
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBY2FkZW1pYSIsImV4cCI6MTY1Mjc3NTIxNSwiaWF0IjoxNjUyMTcwNDE1LCJpc3MiOiJNYXNvbW8iLCJzdWIiOiI5ZDM5MzkxNy1mYjg0LTQ0YmEtYWRkMy01ZWNiODBhYjUwNTkiLCJvcmlhdCI6MTY1MjE3MDQxNSwidXNlcm5hbWUiOiJ0cmV6Y29vbCIsImVtYWlsIjoia2FtYmVtYm90cmVzb3JAZ21haWwuY29tIiwiaXNfc3R1ZGVudCI6dHJ1ZSwicm9sZXMiOlsic3R1ZGVudDoiXX0.3lYSrKgHLwTPotDEQ92QW5Uk5mlO1V2gT22rM337Yd8
+
+
+### ============================ User.Register ============================ ###
+POST http://localhost:8000/api/users/register
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBY2FkZW1pYSIsImV4cCI6MTY1MzUyNzU0NSwiaWF0IjoxNjUyOTIyNzQ1LCJpc3MiOiJNYXNvbW8iLCJzdWIiOiIzMjRjNGIyYS1jNjliLTQ5OGQtOGM0YS1jMWU3ZmNhNmNiOTgiLCJvcmlhdCI6MTY1MjkyMjc0NSwiZW1haWwiOiJhZG1pbkB0cmV6Y29vbC5jb20iLCJpc19zdHVkZW50Ijp0cnVlLCJpc190ZWFjaGVyIjp0cnVlLCJpc19hZG1pbiI6dHJ1ZSwicm9sZXMiOlsiYWRtaW46IiwiYWRtaW46b3duZXIiLCJhZG1pbjpwcmluY2lwYWwiLCJ0ZWFjaGVyOiIsInN0dWRlbnQ6Il19.A5J0gQdLW1R6x0nQkhcZNtUOOTC_j0ZZY98KsCv8AcE
+Content-Type: application/json
+
+{
+  "name": "tresor",
+  "username": "trezcool",
+  "email": "kambembotresor@gmail.com",
+  "password": "LolC@t123",
+  "password_confirm": "LolC@t123",
+  "roles": ["student:"]
+}

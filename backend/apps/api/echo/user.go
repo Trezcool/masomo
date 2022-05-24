@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"sort"
 
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 
@@ -17,11 +19,23 @@ var (
 )
 
 type userApi struct {
-	svc user.Service
+	svc        user.ServiceInterface
+	validate   *validator.Validate
+	translator ut.Translator
 }
 
-func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
-	api := userApi{svc: svc}
+func registerUserAPI(
+	g *echo.Group,
+	jwt echo.MiddlewareFunc,
+	svc user.ServiceInterface,
+	validate *validator.Validate,
+	translator ut.Translator,
+) {
+	api := userApi{
+		svc:        svc,
+		validate:   validate,
+		translator: translator,
+	}
 
 	ug := g.Group("/users")
 
@@ -29,33 +43,33 @@ func registerUserAPI(g *echo.Group, jwt echo.MiddlewareFunc, svc user.Service) {
 	// TODO: access attempt
 	// TODO: no concurrent sessions
 	// TODO: rate limit `/password-reset` & `/password-reset-confirm`
-	ug.POST("/login", api.userLogin)
-	ug.POST("/password-reset", api.userResetPassword)
-	ug.POST("/password-reset-confirm", api.userConfirmPasswordReset)
+	ug.POST("/login", api.login)
+	ug.POST("/password-reset", api.resetPassword)
+	ug.POST("/password-reset-confirm", api.confirmPasswordReset)
 
 	// authed endpoints
 	ag := ug.Group("", jwt)
-	ag.POST("/token-refresh", api.userRefreshToken)
-	ag.POST("/register", api.userCreate, adminMiddleware())
-	ag.GET("", api.userQuery, adminMiddleware())
-	ag.DELETE("", api.userDestroyMultiple, adminMiddleware())
-	ag.GET("/roles", api.userQueryRoles, adminMiddleware())
+	ag.POST("/token-refresh", api.refreshToken)
+	ag.POST("/register", api.create, adminMiddleware())
+	ag.GET("", api.query, adminMiddleware())
+	ag.DELETE("", api.destroyMultiple, adminMiddleware())
+	ag.GET("/roles", api.queryRoles, adminMiddleware())
 
 	// detail endpoints
 	dg := ag.Group("/:id", ctxUserOrAdminMiddleware(api.svc))
-	dg.GET("", api.userRetrieve)
-	dg.PUT("", api.userUpdate)
-	dg.DELETE("", api.userDestroy, adminMiddleware())
+	dg.GET("", api.retrieve)
+	dg.PUT("", api.update)
+	dg.DELETE("", api.destroy, adminMiddleware())
 }
 
 // Handlers
 
-func (api *userApi) userCreate(ctx echo.Context) error {
+func (api *userApi) create(ctx echo.Context) error {
 	var data user.NewUser
 	if err := ctx.Bind(&data); err != nil {
 		return errors.Wrap(err, "binding to NewUser")
 	}
-	if err := data.Validate(api.svc); err != nil {
+	if err := data.Validate(api.validate, api.svc); err != nil {
 		return err
 	}
 
@@ -76,17 +90,20 @@ func (api *userApi) userCreate(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, usr)
 }
 
-func (api *userApi) userLogin(ctx echo.Context) error {
+func (api *userApi) login(ctx echo.Context) error {
 	var data LoginRequest
 	if err := ctx.Bind(&data); err != nil {
 		return errors.Wrap(err, "binding to LoginRequest")
 	}
-	if err := data.Validate(); err != nil {
+	if err := data.Validate(api.validate); err != nil {
 		return err
 	}
 
 	claims, err := authenticate(data.Username, data.Password, api.svc)
 	if err != nil {
+		if errors.Cause(err) == user.ErrNotFound {
+			return core.NewValidationError(errors.New("invalid credentials"))
+		}
 		return errors.Wrap(err, "authenticating")
 	}
 	token, err := GenerateToken(claims)
@@ -97,12 +114,12 @@ func (api *userApi) userLogin(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
-func (api *userApi) userResetPassword(ctx echo.Context) error {
+func (api *userApi) resetPassword(ctx echo.Context) error {
 	var data PasswordResetRequest
 	if err := ctx.Bind(&data); err != nil {
 		return errors.Wrap(err, "binding to PasswordResetRequest")
 	}
-	if err := data.Validate(); err != nil {
+	if err := data.Validate(api.validate); err != nil {
 		return err
 	}
 
@@ -116,12 +133,12 @@ func (api *userApi) userResetPassword(ctx echo.Context) error {
 	})
 }
 
-func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
+func (api *userApi) confirmPasswordReset(ctx echo.Context) error {
 	var data user.ResetUserPassword
 	if err := ctx.Bind(&data); err != nil {
 		return errors.Wrap(err, "binding to ResetUserPassword")
 	}
-	if err := data.Validate(); err != nil {
+	if err := data.Validate(api.validate); err != nil {
 		return err
 	}
 
@@ -131,7 +148,7 @@ func (api *userApi) userConfirmPasswordReset(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, SuccessResponse{Success: "Password has been reset with the new password."})
 }
 
-func (api *userApi) userQuery(ctx echo.Context) error {
+func (api *userApi) query(ctx echo.Context) error {
 	filter := new(user.QueryFilter)
 	if err := ctx.Bind(filter); err != nil {
 		return ctx.JSON(http.StatusOK, []user.User{})
@@ -150,7 +167,7 @@ func (api *userApi) userQuery(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, users)
 }
 
-func (api *userApi) userRetrieve(ctx echo.Context) error {
+func (api *userApi) retrieve(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
 		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
@@ -158,7 +175,7 @@ func (api *userApi) userRetrieve(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, usr)
 }
 
-func (api *userApi) userUpdate(ctx echo.Context) error {
+func (api *userApi) update(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
 		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
@@ -174,11 +191,6 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		return errors.Wrap(err, "getting context user")
 	}
 	if !ctxUsr.IsAdmin() {
-		// user cannot edit other users
-		if usr.ID != ctxUsr.ID {
-			return errHttpForbidden
-		}
-
 		// `IsActive` and `Roles` can only be changed by admin
 		// `Username` and `Email` can only be changed by admin for now
 		if data.IsActive != nil || data.Roles != nil || data.Username != "" || data.Email != "" {
@@ -186,7 +198,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 		}
 	}
 
-	if err := data.Validate(usr, api.svc); err != nil {
+	if err := data.Validate(usr, api.validate, api.svc); err != nil {
 		return err
 	}
 
@@ -203,7 +215,7 @@ func (api *userApi) userUpdate(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, usr)
 }
 
-func (api *userApi) userDestroy(ctx echo.Context) error {
+func (api *userApi) destroy(ctx echo.Context) error {
 	usr, ok := ctx.Get("object").(user.User)
 	if !ok {
 		return errors.Wrap(errUsrNotFoundInCtx, "retrieving object from context")
@@ -218,13 +230,15 @@ func (api *userApi) userDestroy(ctx echo.Context) error {
 		return errHttpForbidden
 	}
 
+	// TODO: ctxUser cannot delete a User with a max role > theirs
+
 	if err := api.svc.Delete(usr.ID); err != nil {
 		return errors.Wrap(errUsrNotFoundInCtx, "deleting user")
 	}
 	return ctx.NoContent(http.StatusNoContent)
 }
 
-func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
+func (api *userApi) destroyMultiple(ctx echo.Context) error {
 	var query DestroyMultipleRequest
 	if err := ctx.Bind(&query); err != nil {
 		return errors.Wrap(err, "binding to DestroyMultipleRequest")
@@ -245,17 +259,19 @@ func (api *userApi) userDestroyMultiple(ctx echo.Context) error {
 		}
 	}
 
+	// TODO: ctxUser cannot delete a User with a max role > theirs
+
 	if err := api.svc.Delete(query.IDs...); err != nil {
 		return errors.Wrap(errUsrNotFoundInCtx, "deleting users")
 	}
 	return ctx.NoContent(http.StatusNoContent)
 }
 
-func (api *userApi) userQueryRoles(ctx echo.Context) error {
+func (api *userApi) queryRoles(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, user.Roles)
 }
 
-func (api *userApi) userRefreshToken(ctx echo.Context) error {
+func (api *userApi) refreshToken(ctx echo.Context) error {
 	token, err := refreshToken(ctx, api.svc)
 	if err != nil {
 		return errors.Wrap(err, "refreshing token")
@@ -263,7 +279,7 @@ func (api *userApi) userRefreshToken(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, LoginResponse{Token: token})
 }
 
-func ctxUserOrAdminMiddleware(svc user.Service) echo.MiddlewareFunc {
+func ctxUserOrAdminMiddleware(svc user.ServiceInterface) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
 			ctxUsr, err := getContextUser(ctx, svc)
@@ -307,12 +323,12 @@ type (
 	}
 )
 
-func (lr *LoginRequest) Validate() error {
+func (lr *LoginRequest) Validate(validate *validator.Validate) error {
 	lr.Username = core.CleanString(lr.Username, true /* lower */)
-	return core.Validate.Struct(lr)
+	return validate.Struct(lr)
 }
 
-func (pr *PasswordResetRequest) Validate() error {
+func (pr *PasswordResetRequest) Validate(validate *validator.Validate) error {
 	pr.Email = core.CleanString(pr.Email, true /* lower */)
-	return core.Validate.Struct(pr)
+	return validate.Struct(pr)
 }

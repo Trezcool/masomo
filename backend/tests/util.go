@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/trezcool/goose"
+	"github.com/trezcool/masomo/core"
 
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/fs"
@@ -34,12 +35,12 @@ $func$;
 `
 )
 
-func OpenDB() *sql.DB {
-	if err := database.Create(); err != nil {
+func OpenDB(conf *core.Config) *sql.DB {
+	if err := database.CreateIfNotExist(conf); err != nil {
 		fmt.Printf("creating DB: %v", err)
 		os.Exit(1)
 	}
-	db, err := database.Open()
+	db, err := database.Open(conf)
 	if err != nil {
 		fmt.Printf("opening DB: %v", err)
 		os.Exit(1)
@@ -77,10 +78,11 @@ func CreateUser(
 	isActive bool,
 	createdAt ...time.Time,
 ) user.User {
-	tstamp := time.Now().UTC().Truncate(time.Microsecond)
+	tstamp := time.Now()
 	if len(createdAt) > 0 {
-		tstamp = createdAt[0].UTC().Truncate(time.Microsecond)
+		tstamp = createdAt[0]
 	}
+	tstamp = tstamp.UTC().Truncate(time.Microsecond)
 	usr := user.User{
 		Name:      name,
 		Username:  uname,

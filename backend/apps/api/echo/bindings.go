@@ -26,10 +26,10 @@ func (ord *Ordering) Bind(ctx echo.Context) {
 
 	for _, field := range strings.Split(val[0], ",") {
 		field = strings.TrimSpace(field)
-		ascending := !strings.HasPrefix(field, "-")
-		if !ascending {
+		descending := strings.HasPrefix(field, "-")
+		if descending {
 			field = field[1:] // drop "-"
 		}
-		ord.Orderings = append(ord.Orderings, core.DBOrdering{Field: field, Ascending: ascending})
+		ord.Orderings = append(ord.Orderings, core.DBOrdering{Field: field, Ascending: !descending})
 	}
 }

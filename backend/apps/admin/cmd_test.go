@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 	"github.com/trezcool/masomo/tests"
@@ -24,13 +25,16 @@ var (
 func TestMain(m *testing.M) {
 	var err error
 
+	conf := core.NewConfig()
+
 	// set up DB & repos
-	db = testutil.OpenDB()
+	db = testutil.OpenDB(conf)
 	usrRepo = boiledrepos.NewUserRepository(db)
 
 	// set up CLI
 	cli = &commandLine{
 		db:      db,
+		conf:    conf,
 		usrRepo: usrRepo,
 	}
 

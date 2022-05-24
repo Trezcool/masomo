@@ -5,14 +5,15 @@ import (
 )
 
 type serviceMock struct {
-	service
+	Service
 }
 
-func NewServiceMock(db core.DB, repo Repository, mailSvc core.EmailService) *serviceMock {
+func NewServiceMock(db core.DB, repo Repository, mailSvc core.EmailService, conf *core.Config) *serviceMock {
 	return &serviceMock{
-		service: service{
+		Service: Service{
 			db:       db,
 			repo:     repo,
+			conf:     conf,
 			mailSvc:  mailSvc,
 			ordering: []core.DBOrdering{{Field: "created_at"}},
 		},

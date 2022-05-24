@@ -16,7 +16,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"github.com/trezcool/masomo/apps/api/echo"
-	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/services/email"
 	"github.com/trezcool/masomo/tests"
@@ -151,7 +150,7 @@ func Test_userApi_userQuery(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
-			app.ServeHTTP(rec, req)
+			server.ServeHTTP(rec, req)
 			checkCodeAndData(t, tt, rec)
 		})
 	}
@@ -169,10 +168,10 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 			Issuer:    "Masomo",
 			Subject:   student.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(core.Conf.Server.JWTExpiration).Unix(),
+			ExpiresAt: now.Add(conf.Server.JWTExpiration).Unix(),
 			IssuedAt:  now.Unix(),
 		},
-		OrigIssuedAt: now.Add(-2 * core.Conf.Server.JWTRefreshExpiration).Unix(), // older than threshold
+		OrigIssuedAt: now.Add(-2 * conf.Server.JWTRefreshExpiration).Unix(), // older than threshold
 		IsStudent:    student.IsStudent(),
 		IsTeacher:    student.IsTeacher(),
 		IsAdmin:      student.IsAdmin(),
@@ -195,7 +194,7 @@ func Test_userApi_userRefreshToken(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newAuthRequest(tt.method, tt.path, tt.token, tt.body)
-			app.ServeHTTP(rec, req)
+			server.ServeHTTP(rec, req)
 
 			// cannot guess new token.. just check that it's not empty
 			if tt.wantCode == http.StatusOK {
@@ -255,7 +254,7 @@ func Test_userApi_userResetPassword(t *testing.T) {
 			emailsvc.SentMessages = nil // reset
 
 			req, rec := newRequest(tt.method, tt.path, tt.body)
-			app.ServeHTTP(rec, req)
+			server.ServeHTTP(rec, req)
 			checkCodeAndData(t, tt, rec)
 
 			if extra, ok := tt.extra.(extraTest); ok {
@@ -300,7 +299,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 	}
 
 	// generate an expired token
-	dayLate := core.Conf.PasswordResetTimeout + (24 * time.Hour)
+	dayLate := conf.PasswordResetTimeout + (24 * time.Hour)
 	user.NowFunc = func() time.Time { return time.Now().Add(-dayLate) }
 	expiredToken, err := user.MakeToken(student)
 	if err != nil {
@@ -376,7 +375,7 @@ func Test_userApi_userConfirmPasswordReset(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			req, rec := newRequest(tt.method, tt.path, tt.body)
-			app.ServeHTTP(rec, req)
+			server.ServeHTTP(rec, req)
 			checkCodeAndData(t, tt, rec)
 
 			if tt.wantCode == http.StatusOK {

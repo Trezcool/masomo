@@ -12,17 +12,13 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-
 	"github.com/trezcool/masomo/fs"
 )
 
-var (
-	Conf  conf
-	build = "develop"
-)
+var build = "develop"
 
 type (
-	conf struct {
+	Config struct {
 		Build                string
 		Env                  string
 		Debug                bool
@@ -59,7 +55,7 @@ type (
 	}
 )
 
-func (c conf) DefaultFromEmail() mail.Address {
+func (c Config) DefaultFromEmail() mail.Address {
 	return mail.Address{
 		Name:    c.AppName,
 		Address: "noreply@" + c.Server.Host,
@@ -74,7 +70,8 @@ func (sc srvConf) Address() string {
 	return net.JoinHostPort(sc.Host, sc.Port)
 }
 
-func init() {
+// NewConfig returns the application's Config instance
+func NewConfig() *Config {
 	v := viper.New()
 	v.SetTypeByDefaultValue(true)
 
@@ -88,7 +85,7 @@ func init() {
 	// load .env if it exists (ignore if it does not)
 	dotEnvPath := "config/" + strings.ToLower(env) + ".env"
 	if file, err := appfs.FS.Open(dotEnvPath); err == nil {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		if err != loadEnvFile(file) {
 			log.Fatalf("%+v", errors.Wrap(err, "loading "+dotEnvPath))
 		}
@@ -130,13 +127,15 @@ func init() {
 	// check env vars and override defaults
 	v.AutomaticEnv()
 
-	if err := v.Unmarshal(&Conf); err != nil {
+	conf := new(Config)
+	if err := v.Unmarshal(&conf); err != nil {
 		log.Fatal(err)
 	}
 
-	if Conf.Debug {
+	if conf.Debug {
 		log.Printf("\n\nConf: %v\n\n", v.AllSettings())
 	}
+	return conf
 }
 
 // todo: get rid of this once `gotdotenv` supports new fs.FS

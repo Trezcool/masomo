@@ -25,20 +25,18 @@ func (err ValidationError) Error() string {
 }
 
 type shutdown struct {
-	Message string
+	message string
 }
 
 func NewShutdownError(msg string) error {
-	return &shutdown{Message: msg}
+	return &shutdown{message: msg}
 }
 
 func (s shutdown) Error() string {
-	return s.Message
+	return s.message
 }
 
 func IsShutdown(err error) bool {
-	if _, ok := errors.Cause(err).(*shutdown); ok {
-		return true
-	}
-	return false
+	_, ok := errors.Cause(err).(*shutdown)
+	return ok
 }

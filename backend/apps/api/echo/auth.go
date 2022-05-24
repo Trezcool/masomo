@@ -15,14 +15,26 @@ import (
 
 var (
 	// appJWTConfig is the default JWT auth middleware config.
+	appName              string
+	appJWTConfig         middleware.JWTConfig
+	jwtExpiration        time.Duration
+	jwtRefreshExpiration time.Duration
+	contextUserKey       = "user"
+)
+
+func initAuth(conf *core.Config) {
+	appName = conf.AppName
+
 	appJWTConfig = middleware.JWTConfig{
-		SigningKey:    []byte(core.Conf.SecretKey),
+		SigningKey:    []byte(conf.SecretKey),
 		SigningMethod: middleware.AlgorithmHS256,
 		ContextKey:    "userToken",
 		Claims:        new(Claims),
 	}
-	contextUserKey = "user"
-)
+
+	jwtExpiration = conf.Server.JWTExpiration
+	jwtRefreshExpiration = conf.Server.JWTRefreshExpiration
+}
 
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
@@ -49,10 +61,10 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 
 	claims := &Claims{
 		StandardClaims: jwt.StandardClaims{
-			Issuer:    core.Conf.AppName,
+			Issuer:    appName,
 			Subject:   usr.ID,
 			Audience:  "Academia",
-			ExpiresAt: now.Add(core.Conf.Server.JWTExpiration).Unix(),
+			ExpiresAt: now.Add(jwtExpiration).Unix(),
 			IssuedAt:  nownix,
 		},
 		OrigIssuedAt: oriat,
@@ -66,7 +78,7 @@ func GetUserClaims(usr user.User, origIat ...int64) *Claims {
 	return claims
 }
 
-func authenticate(uname, pwd string, svc user.Service) (*Claims, error) {
+func authenticate(uname, pwd string, svc user.ServiceInterface) (*Claims, error) {
 	usr, err := svc.GetByUsernameOrEmail(uname)
 	if err != nil {
 		if err == user.ErrNotFound {
@@ -108,7 +120,7 @@ func getContextClaims(ctx echo.Context) (Claims, error) {
 	return Claims{}, errUnauthorized
 }
 
-func getContextUser(ctx echo.Context, svc user.Service, clms ...Claims) (user.User, error) {
+func getContextUser(ctx echo.Context, svc user.ServiceInterface, clms ...Claims) (user.User, error) {
 	if usr, ok := ctx.Get(contextUserKey).(user.User); ok {
 		return usr, nil
 	}
@@ -149,7 +161,7 @@ func contextHasAnyRole(ctx echo.Context, roles []string) bool {
 	return false
 }
 
-func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
+func refreshToken(ctx echo.Context, svc user.ServiceInterface) (string, error) {
 	claims, err := getContextClaims(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "getting context claims")
@@ -166,7 +178,7 @@ func refreshToken(ctx echo.Context, svc user.Service) (string, error) {
 	}
 
 	// check if refresh has not expired
-	expTime := time.Unix(claims.OrigIssuedAt, 0).Add(core.Conf.Server.JWTRefreshExpiration)
+	expTime := time.Unix(claims.OrigIssuedAt, 0).Add(jwtRefreshExpiration)
 	if time.Now().After(expTime) {
 		return "", errRefreshExpired
 	}

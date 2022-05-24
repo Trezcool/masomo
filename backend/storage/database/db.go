@@ -14,14 +14,14 @@ import (
 	"github.com/trezcool/masomo/fs"
 )
 
-func open(dbName string, admin bool) (*sql.DB, error) {
-	user := url.UserPassword(core.Conf.Database.User, core.Conf.Database.Password)
-	if admin && core.Conf.Database.AdminUser != "" {
-		user = url.UserPassword(core.Conf.Database.AdminUser, core.Conf.Database.AdminPassword)
+func open(dbName string, admin bool, conf *core.Config) (*sql.DB, error) {
+	user := url.UserPassword(conf.Database.User, conf.Database.Password)
+	if admin && conf.Database.AdminUser != "" {
+		user = url.UserPassword(conf.Database.AdminUser, conf.Database.AdminPassword)
 	}
 
 	sslMode := "require"
-	if core.Conf.Database.DisableTLS {
+	if conf.Database.DisableTLS {
 		sslMode = "disable"
 	}
 	q := make(url.Values)
@@ -29,17 +29,17 @@ func open(dbName string, admin bool) (*sql.DB, error) {
 	q.Set("timezone", "utc")
 
 	u := url.URL{
-		Scheme:   core.Conf.Database.Engine,
+		Scheme:   conf.Database.Engine,
 		User:     user,
-		Host:     core.Conf.Database.Address(),
+		Host:     conf.Database.Address(),
 		Path:     dbName,
 		RawQuery: q.Encode(),
 	}
-	return sql.Open(core.Conf.Database.Engine, u.String())
+	return sql.Open(conf.Database.Engine, u.String())
 }
 
-func Open() (*sql.DB, error) {
-	return open(core.Conf.Database.Name, false)
+func Open(conf *core.Config) (*sql.DB, error) {
+	return open(conf.Database.Name, false, conf)
 }
 
 // ping waits for the database to be ready. Waits 100ms longer between each attempt.
@@ -60,18 +60,18 @@ func ping(db *sql.DB) error {
 	return nil
 }
 
-func createAppUser(db *sql.DB) error {
-	if core.Conf.Database.User == "" {
+func createAppUser(db *sql.DB, conf *core.Config) error {
+	if conf.Database.User == "" {
 		return nil
 	}
 
 	// check if app user exists
 	var exists bool
-	rows, err := db.Query(fmt.Sprintf("SELECT true FROM pg_roles WHERE rolname='%s'", core.Conf.Database.User))
+	rows, err := db.Query(fmt.Sprintf("SELECT true FROM pg_roles WHERE rolname='%s'", conf.Database.User))
 	if err != nil {
 		return errors.Wrap(err, "checking app user")
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		if err = rows.Scan(&exists); err != nil {
 			return errors.Wrap(err, "checking app user")
@@ -83,7 +83,7 @@ func createAppUser(db *sql.DB) error {
 
 	// create app user if not exist
 	if !exists {
-		q := fmt.Sprintf("CREATE USER %s CREATEDB ENCRYPTED PASSWORD '%s'", core.Conf.Database.User, core.Conf.Database.Password)
+		q := fmt.Sprintf("CREATE USER %s CREATEDB ENCRYPTED PASSWORD '%s'", conf.Database.User, conf.Database.Password)
 		if _, err = db.Exec(q); err != nil {
 			return errors.Wrap(err, "creating app user")
 		}
@@ -91,14 +91,14 @@ func createAppUser(db *sql.DB) error {
 	return nil
 }
 
-func createDB(db *sql.DB) error {
+func createDB(db *sql.DB, conf *core.Config) error {
 	// check if DB exists
 	var exists bool
-	rows, err := db.Query(fmt.Sprintf("SELECT true FROM pg_database WHERE datname='%s'", core.Conf.Database.Name))
+	rows, err := db.Query(fmt.Sprintf("SELECT true FROM pg_database WHERE datname='%s'", conf.Database.Name))
 	if err != nil {
 		return errors.Wrap(err, "checking DB")
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		if err = rows.Scan(&exists); err != nil {
 			return errors.Wrap(err, "checking DB")
@@ -110,16 +110,16 @@ func createDB(db *sql.DB) error {
 
 	// create DB if not exist
 	if !exists {
-		if _, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", core.Conf.Database.Name)); err != nil {
+		if _, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", conf.Database.Name)); err != nil {
 			return errors.Wrap(err, "creating database")
 		}
 	}
 	return nil
 }
 
-func Create() error {
+func CreateIfNotExist(conf *core.Config) error {
 	// connect as admin
-	db, err := open("postgres", true)
+	db, err := open("postgres", true, conf)
 	if err != nil {
 		return errors.Wrap(err, "opening database")
 	}
@@ -128,20 +128,20 @@ func Create() error {
 		return errors.Wrap(err, "pinging database")
 	}
 
-	if err = createAppUser(db); err != nil {
+	if err = createAppUser(db, conf); err != nil {
 		return errors.Wrap(err, "creating app user")
 	}
-	db.Close()
+	defer func() { _ = db.Close() }()
 
 	// create DB as app user
-	db, err = open("postgres", false)
+	db, err = open("postgres", false, conf)
 	if err != nil {
 		return errors.Wrap(err, "opening database")
 	}
-	if err = createDB(db); err != nil {
+	if err = createDB(db, conf); err != nil {
 		return errors.Wrap(err, "creating database")
 	}
-	db.Close()
+	defer func() { _ = db.Close() }()
 	return nil
 }
 

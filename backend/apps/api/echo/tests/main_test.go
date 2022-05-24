@@ -5,22 +5,29 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
 
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
 	. "github.com/trezcool/masomo/apps/api/echo"
+	"github.com/trezcool/masomo/core"
 	"github.com/trezcool/masomo/core/user"
 	"github.com/trezcool/masomo/services/email"
+	logsvc "github.com/trezcool/masomo/services/logger"
 	"github.com/trezcool/masomo/storage/database/sqlboiler"
 	"github.com/trezcool/masomo/tests"
 )
 
 var (
 	db      *sql.DB
-	app     *Server
+	conf    *core.Config
+	server  *Server
 	usrRepo user.Repository
 
 	errMissingToken = httpErr{Error: "missing or malformed jwt"}
@@ -29,19 +36,41 @@ var (
 func TestMain(m *testing.M) {
 	var err error
 
+	// =========================================================================
+	// Dependencies
+	conf = core.NewConfig()
+
+	logger := logsvc.NewRollbarLogger(log.Default(), conf)
+	logger.Enable(false)
+
 	// set up DB & repos
-	db = testutil.OpenDB()
+	db = testutil.OpenDB(conf)
 	usrRepo = boiledrepos.NewUserRepository(db)
 
 	// set up services
-	mailSvc := emailsvc.NewConsoleServiceMock()
-	usrSvc := user.NewServiceMock(db, usrRepo, mailSvc)
+	mailSvc := emailsvc.NewConsoleServiceMock(conf)
+	usrSvc := user.NewServiceMock(db, usrRepo, mailSvc, conf)
+
+	// =========================================================================
+	// Initialization
+	validate := validator.New()
+	_en := en.New()
+	uni := ut.New(_en, _en)
+	translator, _ := uni.GetTranslator("en")
+	core.InitValidators(validate, translator)
+	user.InitValidators(validate, translator)
+
+	core.ParseEmailTemplates(logger)
+	user.LoadCommonPasswords(logger)
 
 	// set up server
-	app = NewServer(
-		nil, /* shutdown */
-		&Deps{
-			UserSvc: usrSvc,
+	server = NewServer(
+		ServerDeps{
+			Conf:       conf,
+			Logger:     logger,
+			UserSvc:    usrSvc,
+			Validate:   validate,
+			Translator: translator,
 		},
 	)
 

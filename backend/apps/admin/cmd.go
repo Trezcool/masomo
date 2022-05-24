@@ -29,11 +29,12 @@ var (
 
 type commandLine struct {
 	db      *sql.DB
+	conf    *core.Config
 	usrRepo user.Repository
 }
 
 func (cli *commandLine) printUsage() {
-	if !core.Conf.TestMode {
+	if !cli.conf.TestMode {
 		fmt.Printf("\n%s\n", usage)
 	}
 }

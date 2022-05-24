@@ -5,16 +5,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	en_translations "github.com/go-playground/validator/v10/translations/en"
 )
 
 var (
-	Validate   *validator.Validate
-	Translator ut.Translator
-
 	// custom validation tags & texts
 	alphaNumUnderTag   = "alphanum_"
 	alphaNumUnderText  = "only alphanumeric characters and underscores are allowed"
@@ -25,18 +21,12 @@ var (
 	requiredText    = "this field is required"
 )
 
-// Instantiate the validator for use.
-func init() {
-	Validate = validator.New()
-
-	// Register the english error messages for validation errors.
-	_en := en.New()
-	uni := ut.New(_en, _en)
-	Translator, _ = uni.GetTranslator("en")
-	_ = en_translations.RegisterDefaultTranslations(Validate, Translator)
+// InitValidators instantiates the validator for use.
+func InitValidators(validate *validator.Validate, translator ut.Translator) {
+	_ = en_translations.RegisterDefaultTranslations(validate, translator)
 
 	// Use JSON tag names for errors instead of Go struct names.
-	Validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
 		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
 		if name == "-" {
 			return ""
@@ -45,21 +35,21 @@ func init() {
 	})
 
 	// register custom validators
-	_ = Validate.RegisterValidation(alphaNumUnderTag, alphaNumUnderValidation)
-	RegisterCustomTranslation(alphaNumUnderTag, alphaNumUnderText)
+	_ = validate.RegisterValidation(alphaNumUnderTag, alphaNumUnderValidation)
+	RegisterCustomTranslation(validate, translator, alphaNumUnderTag, alphaNumUnderText)
 
-	RegisterCustomTranslation(requiredTag, requiredText, true)
-	RegisterCustomTranslation(requiredWithTag, requiredText, true)
+	RegisterCustomTranslation(validate, translator, requiredTag, requiredText, true)
+	RegisterCustomTranslation(validate, translator, requiredWithTag, requiredText, true)
 }
 
 // RegisterCustomTranslation registers a custom translation for the specified validation tag.
-func RegisterCustomTranslation(tag, text string, override ...bool) {
+func RegisterCustomTranslation(validate *validator.Validate, translator ut.Translator, tag, text string, override ...bool) {
 	var ovrd bool
 	if len(override) > 0 {
 		ovrd = override[0]
 	}
-	_ = Validate.RegisterTranslation(
-		tag, Translator,
+	_ = validate.RegisterTranslation(
+		tag, translator,
 		func(t ut.Translator) error { return t.Add(tag, text, ovrd) },
 		func(t ut.Translator, fe validator.FieldError) string {
 			s, _ := t.T(tag, fe.Field())
