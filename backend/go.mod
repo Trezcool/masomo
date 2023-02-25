@@ -3,7 +3,6 @@ module github.com/trezcool/masomo
 go 1.16
 
 require (
-	github.com/01walid/goarabic v0.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/friendsofgo/errors v0.9.2
 	github.com/go-playground/locales v0.13.0
@@ -32,9 +31,7 @@ require (
 	github.com/volatiletech/sqlboiler/v4 v4.3.1
 	github.com/volatiletech/strmangle v0.0.1
 	go.uber.org/dig v1.14.1
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/sys v0.0.0-20201204225414-ed752295db88 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
-	golang.org/x/text v0.3.7
+	golang.org/x/crypto v0.1.0
+	golang.org/x/term v0.1.0
 	gopkg.in/yaml.v2 v2.2.5 // indirect
 )
